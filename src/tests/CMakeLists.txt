@@ -8,7 +8,7 @@ include(GoogleTest)
 file(GLOB sources CONFIGURE_DEPENDS *.hpp *.cpp)
 source_group("" FILES ${sources})
 
-add_executable(tests ${sources})
+add_executable(tests EXCLUDE_FROM_ALL ${sources})
 target_link_libraries(tests PUBLIC ice)
 
 find_package(GTest REQUIRED)

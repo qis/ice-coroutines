@@ -6,7 +6,7 @@ endif()
 file(GLOB sources CONFIGURE_DEPENDS *.hpp *.cpp)
 source_group("" FILES ${sources})
 
-add_executable(benchmark ${sources})
+add_executable(benchmark EXCLUDE_FROM_ALL ${sources})
 target_link_libraries(benchmark PUBLIC ice)
 
 find_package(benchmark REQUIRED)
