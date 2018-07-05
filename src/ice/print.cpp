@@ -3,10 +3,10 @@
 #include <cstdarg>
 
 #if ICE_OS_WIN32
-#include <io.h>
-#include <windows.h>
+#  include <io.h>
+#  include <windows.h>
 #else
-#include <unistd.h>
+#  include <unistd.h>
 #endif
 
 namespace ice {

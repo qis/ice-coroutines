@@ -2,12 +2,12 @@
 #include <ice/error.hpp>
 
 #if ICE_OS_WIN32
-#include <windows.h>
-#include <winsock2.h>
+#  include <windows.h>
+#  include <winsock2.h>
 #else
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <unistd.h>
+#  include <sys/socket.h>
+#  include <sys/types.h>
+#  include <unistd.h>
 #endif
 
 namespace ice::net {
@@ -117,7 +117,7 @@ int socket::type() const noexcept
 int socket::protocol() const noexcept
 {
 #if ICE_OS_WIN32
-  WSAPROTOCOL_INFOW data;
+  WSAPROTOCOL_INFOW data = {};
   auto size = socklen_t(sizeof(data));
   if (get(SOL_SOCKET, SO_PROTOCOL_INFOW, &data, size)) {
     return 0;

@@ -3,14 +3,14 @@
 #include <new>
 
 #if ICE_OS_WIN32
-#include <windows.h>
-#include <winsock2.h>
-#include <ws2tcpip.h>
+#  include <windows.h>
+#  include <winsock2.h>
+#  include <ws2tcpip.h>
 #else
-#include <arpa/inet.h>
-#include <netinet/in.h>
-#include <sys/socket.h>
-#include <sys/types.h>
+#  include <arpa/inet.h>
+#  include <netinet/in.h>
+#  include <sys/socket.h>
+#  include <sys/types.h>
 #endif
 
 namespace ice::net {

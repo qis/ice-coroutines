@@ -4,8 +4,8 @@
 #include <cstdio>
 
 #if ICE_OS_WIN32
-#include <wchar.h>
-#include <windows.h>
+#  include <wchar.h>
+#  include <windows.h>
 #endif
 
 namespace ice {

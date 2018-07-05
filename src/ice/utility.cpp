@@ -4,12 +4,12 @@
 #include <cassert>
 
 #if ICE_OS_WIN32
-#include <windows.h>
+#  include <windows.h>
 #else
-#include <pthread.h>
-#if ICE_OS_FREEBSD
-#include <pthread_np.h>
-#endif
+#  include <pthread.h>
+#  if ICE_OS_FREEBSD
+#    include <pthread_np.h>
+#  endif
 #endif
 
 namespace ice {
@@ -80,22 +80,22 @@ std::error_code set_thread_affinity(std::size_t index) noexcept
 {
   assert(index < std::thread::hardware_concurrency());
 #if ICE_NO_DEBUG
-#if ICE_OS_WIN32
+#  if ICE_OS_WIN32
   if (!::SetThreadAffinityMask(::GetCurrentThread(), DWORD_PTR(1) << index)) {
     return ice::make_error_code(::GetLastError());
   }
-#else
-#if ICE_OS_LINUX
+#  else
+#    if ICE_OS_LINUX
   cpu_set_t cpuset;
-#elif ICE_OS_FREEBSD
+#    elif ICE_OS_FREEBSD
   cpuset_t cpuset;
-#endif
+#    endif
   CPU_ZERO(&cpuset);
   CPU_SET(static_cast<int>(index), &cpuset);
   if (const auto rc = ::pthread_setaffinity_np(::pthread_self(), sizeof(cpuset), &cpuset)) {
     return ice::make_error_code(rc);
   }
-#endif
+#  endif
 #endif
   return {};
 }

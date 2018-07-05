@@ -7,7 +7,7 @@
 #include <mutex>
 
 #if ICE_EXCEPTIONS
-#include <exception>
+#  include <exception>
 #endif
 
 namespace ice {
@@ -27,10 +27,10 @@ struct task_promise {
 #if ICE_EXCEPTIONS || defined(__clang__)
   void unhandled_exception() const noexcept(ICE_NO_EXCEPTIONS)
   {
-#if ICE_EXCEPTIONS
-#if ICE_DEBUG
+#  if ICE_EXCEPTIONS
+#    if ICE_DEBUG
     throw;
-#else
+#    else
     try {
       throw;
     }
@@ -44,8 +44,8 @@ struct task_promise {
     catch (...) {
       ice::log::error("unhandled exception");
     }
-#endif
-#endif
+#    endif
+#  endif
   }
 #endif
 };

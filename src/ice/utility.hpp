@@ -3,6 +3,44 @@
 #include <ice/handle.hpp>
 #include <system_error>
 
+#ifndef ICE_LIKELY
+#  ifdef __has_builtin
+#    if __has_builtin(__builtin_expect)
+#      define ICE_LIKELY(expr) __builtin_expect(expr, 1)
+#    endif
+#  endif
+#endif
+#ifndef ICE_LIKELY
+#  define ICE_LIKELY(expr) expr
+#endif
+
+#ifndef ICE_UNLIKELY
+#  ifdef __has_builtin
+#    if __has_builtin(__builtin_expect)
+#      define ICE_UNLIKELY(expr) __builtin_expect(expr, 0)
+#    endif
+#  endif
+#endif
+#ifndef ICE_UNLIKELY
+#  define ICE_UNLIKELY(expr) expr
+#endif
+
+#ifndef ICE_ALWAYS_INLINE
+#  if defined(_MSC_VER) && !defined(__clang__)
+#    define ICE_ALWAYS_INLINE __forceinline
+#  else
+#    define ICE_ALWAYS_INLINE __attribute__((always_inline))
+#  endif
+#endif
+
+#ifndef ICE_OFFSETOF
+#  if defined(_MSC_VER) && !defined(__clang__)
+#    define ICE_OFFSETOF(s, m) ((size_t)(&reinterpret_cast<char const volatile&>((((s*)0)->m))))
+#  else
+#    define ICE_OFFSETOF __builtin_offsetof
+#  endif
+#endif
+
 namespace ice {
 
 class thread_local_storage {

@@ -3,12 +3,12 @@
 #include <new>
 
 #if ICE_OS_WIN32
-#include <windows.h>
-#include <winsock2.h>
+#  include <windows.h>
+#  include <winsock2.h>
 #else
-#include <netinet/tcp.h>
-#include <sys/socket.h>
-#include <sys/types.h>
+#  include <netinet/tcp.h>
+#  include <sys/socket.h>
+#  include <sys/types.h>
 #endif
 
 namespace ice::net {
