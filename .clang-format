@@ -57,12 +57,16 @@ IncludeCategories:
   Priority: 1
 - Regex: '^<ice/'  # library namespace
   Priority: 2
+- Regex: '^<(windows|winsock2).h>'
+  Priority: 4
+- Regex: '^<(winsock2|ws2tcpip|mswsock).h>'
+  Priority: 5
 - Regex: '^<.*(\.h|\.hh|\.hpp|\.hxx)'
   Priority: 3
 - Regex: '^<(cassert|cctype|cerrno|cfenv|cfloat|cinttypes|climits|clocale|cmath|csetjmp|csignal|cstdarg|cstddef|cstdint|cstdio|cstdlib|cstring|ctime|cuchar|cwchar|cwctype)>'
-  Priority: 5
+  Priority: 7
 - Regex: '.*'
-  Priority: 4
+  Priority: 6
 IndentCaseLabels: false
 IndentPPDirectives: AfterHash
 IndentWidth: 2
