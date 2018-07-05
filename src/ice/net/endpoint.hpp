@@ -1,7 +1,6 @@
 #pragma once
 #include <ice/config.hpp>
 #include <ice/net/types.hpp>
-#include <optional>
 #include <string>
 #include <system_error>
 #include <type_traits>
@@ -14,15 +13,14 @@ public:
   using storage_type = std::aligned_storage_t<sockaddr_storage_size, sockaddr_storage_alignment>;
 
   endpoint() noexcept;
-  endpoint(const std::string& host, std::uint16_t port);
+  endpoint(const std::string& host, std::uint16_t port) noexcept;
 
   endpoint(const endpoint& other) noexcept;
   endpoint& operator=(const endpoint& other) noexcept;
 
   ~endpoint();
 
-  std::error_code create(const std::string& host, std::uint16_t port) noexcept;
-  std::optional<std::string> host() const;
+  std::string host() const;
   std::uint16_t port() const noexcept;
 
   int family() const noexcept;
@@ -72,9 +70,9 @@ public:
     return reinterpret_cast<const ::sockaddr_in6&>(storage_);
   }
 
-  constexpr socklen_t capacity() noexcept
+  constexpr static socklen_t capacity() noexcept
   {
-    return sizeof(storage_);
+    return sizeof(storage_type);
   }
 
 private:

@@ -2,7 +2,7 @@
 #include <ice/config.hpp>
 #include <ice/scheduler.hpp>
 #include <ice/utility.hpp>
-#include <mutex>
+#include <system_error>
 #include <type_traits>
 
 #if ICE_OS_WIN32
@@ -61,6 +61,7 @@ public:
 
 protected:
   std::experimental::coroutine_handle<> awaiter_;
+  std::error_code ec_;
 };
 
 class service final : private scheduler {
@@ -116,12 +117,15 @@ public:
   }
 #endif
 
+#if ICE_OS_LINUX || ICE_OS_FREEBSD
+  std::error_code queue_recv(int handle, native_event* ev) noexcept;
+#endif
+
 private:
   void interrupt() noexcept;
 
   std::atomic_bool stop_ = false;
   ice::thread_local_storage index_;
-  std::mutex mutex_;
   handle_type handle_;
 #if ICE_OS_LINUX
   handle_type events_;

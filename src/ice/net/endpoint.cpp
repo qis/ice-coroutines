@@ -37,14 +37,7 @@ endpoint::~endpoint()
   reinterpret_cast<sockaddr_storage&>(storage_).~sockaddr_storage();
 }
 
-endpoint::endpoint(const std::string& host, std::uint16_t port)
-{
-  if (const auto ec = create(host, port)) {
-    throw_error(ec, "invalid address");
-  }
-}
-
-std::error_code endpoint::create(const std::string& host, std::uint16_t port) noexcept
+endpoint::endpoint(const std::string& host, std::uint16_t port) noexcept
 {
   int error = 0;
   if (host.find(":", 0, 5) == std::string::npos) {
@@ -61,16 +54,11 @@ std::error_code endpoint::create(const std::string& host, std::uint16_t port) no
     error = ::inet_pton(AF_INET6, host.data(), &addr.sin6_addr);
   }
   if (error != 1) {
-#if ICE_OS_WIN32
-    return make_error_code(::WSAGetLastError());
-#else
-    return make_error_code(errno);
-#endif
+    clear();
   }
-  return {};
 }
 
-std::optional<std::string> endpoint::host() const
+std::string endpoint::host() const
 {
   std::string buffer;
   switch (size_) {

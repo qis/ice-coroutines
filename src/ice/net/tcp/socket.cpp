@@ -1,5 +1,4 @@
 #include "socket.hpp"
-#include <ice/error.hpp>
 #include <cassert>
 
 #if ICE_OS_WIN32
@@ -14,6 +13,8 @@
 #  include <sys/types.h>
 #  include <unistd.h>
 #endif
+
+#include <ice/log.hpp>
 
 namespace ice::net::tcp {
 namespace detail {
@@ -83,6 +84,99 @@ std::error_code socket::listen(std::size_t backlog)
   ::setsockopt(handle_, SOL_SOCKET, SO_LINGER, &data, sizeof(data));
 #endif
   return {};
+}
+
+accept::accept(tcp::socket& socket, std::error_code* ec) noexcept :
+  service_(socket.service()), socket_(socket.handle()), client_(socket.service()), handler_(ec)
+{
+#if ICE_OS_WIN32
+  ec_ = client_.create(socket.family(), socket.protocol());
+#endif
+}
+
+bool accept::await_ready() noexcept
+{
+#if ICE_OS_LINUX || ICE_OS_FREEBSD
+  client_.remote_endpoint().size() = endpoint::capacity();
+  auto& sockaddr = client_.remote_endpoint().sockaddr();
+  auto& size = client_.remote_endpoint().size();
+  client_.handle().reset(::accept4(socket_, &sockaddr, &size, SOCK_NONBLOCK));
+  if (client_) {
+    return true;
+  }
+  if (errno != EAGAIN && errno != EINTR) {
+    ec_ = make_error_code(errno);
+    return true;
+  }
+  return false;
+#else
+  ice::log::debug(ec_, "await_ready");
+  return ec_ ? true : false;
+#endif
+}
+
+bool accept::await_suspend(std::experimental::coroutine_handle<> awaiter) noexcept
+{
+  awaiter_ = awaiter;
+#if ICE_OS_WIN32
+  const auto socket = socket_.as<SOCKET>();
+  const auto client = client_.handle().as<SOCKET>();
+  while (true) {
+    if (::AcceptEx(socket, client, &buffer_, 0, buffer_size, buffer_size, &bytes_, get())) {
+      ice::log::debug(ec_, "AcceptEx");
+      break;
+    }
+    const auto rc = ::WSAGetLastError();
+    if (rc == ERROR_IO_PENDING) {
+      ice::log::debug("AcceptEx == ERROR_IO_PENDING");
+      return true;
+    }
+    if (rc != WSAECONNRESET) {
+      ec_ = make_error_code(rc);
+      ice::log::debug(ec_, "AcceptEx != WSAECONNRESET");
+      return false;
+    }
+  }
+  return false;
+#else
+  if (const auto ec = service_.queue_recv(socket_, this)) {
+    ec_ = ec;
+    return false;
+  }
+  return true;
+#endif
+}
+
+void accept::resume() noexcept
+{
+#if ICE_OS_WIN32
+  DWORD bytes = 0;
+  if (!::GetOverlappedResult(socket_.as<HANDLE>(), get(), &bytes, FALSE)) {
+    if (const auto rc = ::GetLastError(); rc != WSAECONNRESET) {
+      ec_ = make_error_code(rc);
+    }
+    ice::log::debug(ec_, "GetOverlappedResult Error");
+    awaiter_.resume();
+    return;
+  }
+  const auto addr = reinterpret_cast<::sockaddr_storage*>(&buffer_[buffer_size]);
+  switch (addr->ss_family) {
+  case AF_INET:
+    client_.remote_endpoint().sockaddr_in() = *reinterpret_cast<::sockaddr_in*>(addr);
+    client_.remote_endpoint().size() = sizeof(::sockaddr_in);
+    break;
+  case AF_INET6:
+    client_.remote_endpoint().sockaddr_in6() = *reinterpret_cast<::sockaddr_in6*>(addr);
+    client_.remote_endpoint().size() = sizeof(::sockaddr_in6);
+    break;
+  }
+  ice::log::debug(ec_, "GetOverlappedResult");
+  awaiter_.resume();
+#else
+  if (await_ready() || !await_suspend(awaiter_)) {
+    awaiter_.resume();
+  }
+#endif
 }
 
 #if 0

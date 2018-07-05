@@ -111,15 +111,6 @@ std::error_code service::run(std::size_t event_buffer_size) noexcept
   using size_type = int;
 #endif
 
-  {
-    std::lock_guard lock{ mutex_ };
-    if (!handle_) {
-      if (const auto ec = create()) {
-        return ec;
-      }
-    }
-  }
-
   std::error_code ec;
   std::vector<data_type> events;
   events.resize(event_buffer_size);
@@ -177,7 +168,34 @@ std::error_code service::run(std::size_t event_buffer_size) noexcept
     }
   }
   return ec;
-}  // namespace ice
+}
+
+#if ICE_OS_LINUX
+
+std::error_code service::queue_recv(int handle, native_event* ev) noexcept
+{
+  struct epoll_event nev { EPOLLIN | EPOLLONESHOT, {} };
+  nev.data.ptr = ev;
+  if (::epoll_ctl(handle_, EPOLL_CTL_ADD, handle, &nev) < 0) {
+    return make_error_code(errno);
+  }
+  return {};
+}
+
+#elif ICE_OS_FREEBSD
+
+bool service::queue_recv(int handle, native_event* ev) noexcept
+{
+  native_event nev;
+  EV_SET(&nev, static_cast<uintptr_t>(id), EVFILT_READ, EV_ADD | EV_ONESHOT, 0, 0, this);
+  if (::kevent(context, &nev, 1, nullptr, 0, nullptr) < 0) {
+    ec_ = errno;
+    return false;
+  }
+  return true;
+}
+
+#endif
 
 void service::interrupt() noexcept
 {

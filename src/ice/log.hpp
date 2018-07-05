@@ -4,6 +4,7 @@
 #include <chrono>
 #include <memory>
 #include <string>
+#include <system_error>
 #include <cstdint>
 
 namespace ice::log {
@@ -45,6 +46,8 @@ void set(std::shared_ptr<sink> sink);
 
 void limit(std::size_t queue_size) noexcept;
 
+// clang-format off
+
 void queue(time_point tp, level level, ice::format format, std::string message) noexcept;
 
 template <typename Arg, typename... Args>
@@ -63,6 +66,40 @@ inline void queue(time_point tp, level level, fmt::string_view message, Arg&& ar
 {
   queue(tp, level, fmt::format(message, std::forward<Arg>(arg), std::forward<Args>(args)...));
 }
+
+inline void queue(time_point tp, level level, ice::format format, std::error_code ec, std::string message) noexcept
+{
+  queue(tp, level, format, fmt::format("{} error {}: {} ({})", ec.category().name(), ec.value(), message, ec.message()));
+}
+
+template <typename Arg, typename... Args>
+inline void queue(time_point tp, level level, ice::format format, std::error_code ec, fmt::string_view message, Arg&& arg, Args&&... args)
+{
+  queue(tp, level, format, ec, fmt::format(message, std::forward<Arg>(arg), std::forward<Args>(args)...));
+}
+
+inline void queue(time_point tp, level level, std::error_code ec, std::string message) noexcept
+{
+  queue(tp, level, ice::format{}, ec, std::move(message));
+}
+
+template <typename Arg, typename... Args>
+inline void queue(time_point tp, level level, std::error_code ec, fmt::string_view message, Arg&& arg, Args&&... args)
+{
+  queue(tp, level, ec, fmt::format(message, std::forward<Arg>(arg), std::forward<Args>(args)...));
+}
+
+inline void queue(time_point tp, level level, ice::format format, std::error_code ec) noexcept
+{
+  queue(tp, level, format, fmt::format("{} error {}: {}", ec.category().name(), ec.value(), ec.message()));
+}
+
+inline void queue(time_point tp, level level, std::error_code ec) noexcept
+{
+  queue(tp, level, ice::format{}, ec);
+}
+
+// clang-format on
 
 template <typename... Args>
 inline void emergency(Args&&... args)
