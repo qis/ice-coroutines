@@ -41,7 +41,7 @@ install(TARGETS ice EXPORT ice
   ARCHIVE DESTINATION lib)
 
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} DESTINATION include FILES_MATCHING PATTERN "*.hpp")
-install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/src/ice DESTINATION include FILES_MATCHING PATTERN "*.hpp")
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/src/ice/config.hpp DESTINATION include/ice)
 
 include(CMakePackageConfigHelpers)
 
