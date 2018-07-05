@@ -7,7 +7,7 @@ int main()
   ice::service service;
   [&]() -> ice::task {
     co_await service.schedule(true);
-    ice::log::info("ok");
+    ice::log::notice("ok");
     service.stop();
   }();
   service.run();
