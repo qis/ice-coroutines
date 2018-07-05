@@ -1,0 +1,87 @@
+cmake_minimum_required(VERSION 3.12.0 FATAL_ERROR)
+project(ice VERSION 0.1.0 LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+  foreach(config ${CMAKE_CONFIGURATION_TYPES})
+    string(TOUPPER CMAKE_CXX_FLAGS_${config} name)
+    string(REPLACE "/MD" "/MT" ${name} ${${name}})
+  endforeach()
+endif()
+
+if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+  add_compile_options(/arch:AVX /favor:INTEL64 /await /await:heapelide)
+else()
+  add_compile_options(-march=native -mavx -fcoroutines-ts)
+endif()
+
+option(ENABLE_EXCEPTIONS "Enable exceptions" ON)
+if(NOT ENABLE_EXCEPTIONS)
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+    string(REGEX REPLACE "/EHs-?c-?" "/EHs-c-" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+    add_definitions(-D_HAS_EXCEPTIONS=0)
+  else()
+    add_compile_options(-fno-exceptions)
+  endif()
+endif()
+
+option(ENABLE_RTTI "Enable run-time type information" ON)
+if(NOT ENABLE_RTTI)
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+    string(REGEX REPLACE "/GR-?" "/GR-" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+  else()
+    add_compile_options(-fno-rtti)
+  endif()
+endif()
+
+if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+  string(REGEX REPLACE "[/-]W[0-9]" "/W4" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+  add_compile_options(/permissive- /wd4100)
+else()
+  add_compile_options(-Wall -Wextra -Wpedantic -Wconversion -Wno-unused-parameter)
+endif()
+
+if(WIN32)
+  add_definitions(-DWIN32_LEAN_AND_MEAN -DNOMINMAX -DWINVER=0x0A00 -D_WIN32_WINNT=0x0A00)
+  add_definitions(-D_CRT_SECURE_NO_DEPRECATE -D_CRT_NONSTDC_NO_DEPRECATE -D_CRT_SECURE_NO_WARNINGS)
+  add_definitions(-D_ATL_SECURE_NO_DEPRECATE -D_SCL_SECURE_NO_WARNINGS)
+endif()
+
+if(NOT CMAKE_DEBUG_POSTFIX)
+  set(CMAKE_DEBUG_POSTFIX d)
+endif()
+
+set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+set_property(GLOBAL PROPERTY PREDEFINED_TARGETS_FOLDER build)
+list(INSERT CMAKE_MODULE_PATH 0 ${CMAKE_CURRENT_SOURCE_DIR}/res/cmake)
+
+add_subdirectory(src/ice)
+add_subdirectory(src/application)
+
+include(CMakePackageConfigHelpers)
+
+configure_package_config_file(res/config.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config.cmake
+  INSTALL_DESTINATION lib/cmake/${PROJECT_NAME})
+
+write_basic_package_version_file(${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config-version.cmake
+  VERSION ${PROJECT_VERSION} COMPATIBILITY SameMajorVersion)
+
+install(FILES
+  ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config.cmake
+  ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config-version.cmake
+  DESTINATION lib/cmake/${PROJECT_NAME})
+
+install(EXPORT ${PROJECT_NAME} FILE ${PROJECT_NAME}-targets.cmake NAMESPACE ${PROJECT_NAME}::
+  DESTINATION lib/cmake/${PROJECT_NAME})
+
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/benchmark/CMakeLists.txt)
+  add_subdirectory(src/benchmark)
+endif()
+
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/CMakeLists.txt)
+  enable_testing()
+  add_subdirectory(src/tests)
+endif()

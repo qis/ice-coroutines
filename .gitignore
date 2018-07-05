@@ -1,0 +1,18 @@
+# Hidden
+.*
+!.clang-format
+!.gitattributes
+!.gitignore
+
+# Build
+/build/
+/tzdata/
+
+# Install
+/bin/
+/include/
+/lib/
+
+# Debug
+/*.core
+/core
