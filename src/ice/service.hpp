@@ -76,6 +76,7 @@ public:
   };
   using handle_type = ice::handle<int, -1, close_type>;
 #endif
+  using handle_view = handle_type::view;
 
   std::error_code create() noexcept;
 
@@ -103,13 +104,13 @@ public:
     return { *this, post };
   }
 
-  handle_type::view handle() const noexcept
+  handle_view handle() const noexcept
   {
     return handle_;
   }
 
 #if ICE_OS_LINUX
-  handle_type::view events() const noexcept
+  handle_view events() const noexcept
   {
     return events_;
   }

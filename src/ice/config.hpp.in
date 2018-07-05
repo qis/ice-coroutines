@@ -55,7 +55,4 @@ constexpr inline std::size_t native_event_alignment = @native_event_alignment@;
 constexpr inline std::size_t sockaddr_storage_size = @sockaddr_storage_size@;
 constexpr inline std::size_t sockaddr_storage_alignment = @sockaddr_storage_alignment@;
 
-constexpr inline std::size_t linger_size = @linger_size@;
-constexpr inline std::size_t linger_alignment = @linger_alignment@;
-
 }  // namespace ice
