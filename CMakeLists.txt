@@ -63,19 +63,19 @@ add_subdirectory(src/application)
 
 include(CMakePackageConfigHelpers)
 
-configure_package_config_file(res/config.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config.cmake
-  INSTALL_DESTINATION lib/cmake/${PROJECT_NAME})
+configure_package_config_file(res/config.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/ice-config.cmake
+  INSTALL_DESTINATION lib/cmake/ice)
 
-write_basic_package_version_file(${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config-version.cmake
+write_basic_package_version_file(${CMAKE_CURRENT_BINARY_DIR}/ice-config-version.cmake
   VERSION ${PROJECT_VERSION} COMPATIBILITY SameMajorVersion)
 
 install(FILES
-  ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config.cmake
-  ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config-version.cmake
-  DESTINATION lib/cmake/${PROJECT_NAME})
+  ${CMAKE_CURRENT_BINARY_DIR}/ice-config.cmake
+  ${CMAKE_CURRENT_BINARY_DIR}/ice-config-version.cmake
+  DESTINATION lib/cmake/ice)
 
-install(EXPORT ${PROJECT_NAME} FILE ${PROJECT_NAME}-targets.cmake NAMESPACE ${PROJECT_NAME}::
-  DESTINATION lib/cmake/${PROJECT_NAME})
+install(EXPORT ice FILE ice-targets.cmake NAMESPACE ice::
+  DESTINATION lib/cmake/ice)
 
 if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/benchmark/CMakeLists.txt)
   add_subdirectory(src/benchmark)
