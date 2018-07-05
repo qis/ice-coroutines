@@ -13,7 +13,7 @@ macro(configure_header header source output)
   
   configure_file(${source_file} ${CMAKE_CURRENT_BINARY_DIR}/config.cpp @ONLY)
   
-  try_compile(CONFIG_RESULT ${CMAKE_CURRENT_BINARY_DIR}
+  try_compile(CONFIG_RESULT ${CMAKE_BINARY_DIR}
     SOURCES ${CMAKE_CURRENT_BINARY_DIR}/config.cpp
     CXX_STANDARD 20 CXX_STANDARD_REQUIRED ON
     OUTPUT_VARIABLE CONFIG_OUTPUT)
