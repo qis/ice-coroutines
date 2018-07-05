@@ -1,6 +1,6 @@
 include_guard(GLOBAL)
 
-macro(configure_header header source output)
+function(configure_header header source output)
   get_filename_component(header_file ${header} ABSOLUTE)
   get_filename_component(source_file ${source} ABSOLUTE)
   get_filename_component(output_file ${output} ABSOLUTE)
@@ -11,12 +11,10 @@ macro(configure_header header source output)
     return()
   endif()
   
-  configure_file(${source_file} ${CMAKE_CURRENT_BINARY_DIR}/config.cpp @ONLY)
+  configure_file(${source_file} ${CMAKE_BINARY_DIR}/config.cpp)
   
-  try_compile(CONFIG_RESULT ${CMAKE_BINARY_DIR}
-    SOURCES ${CMAKE_CURRENT_BINARY_DIR}/config.cpp
-    CXX_STANDARD 20 CXX_STANDARD_REQUIRED ON
-    OUTPUT_VARIABLE CONFIG_OUTPUT)
+  try_compile(CONFIG_RESULT ${CMAKE_BINARY_DIR} SOURCES ${CMAKE_BINARY_DIR}/config.cpp
+    CXX_STANDARD 20 CXX_STANDARD_REQUIRED ON OUTPUT_VARIABLE CONFIG_OUTPUT)
 
   string(REPLACE "\n" ";" CONFIG_OUTPUT "${CONFIG_OUTPUT}")
   set(CONFIG_REGEX ".*check<([^,>]+), ?([0-9]+), ?([0-9]+)>.*")
@@ -37,5 +35,5 @@ macro(configure_header header source output)
     endif()
   endforeach()
 
-  configure_file(${header_file} ${output_file} ${ARGN})
-endmacro()
+  configure_file(${header_file} ${output_file} NEWLINE_STYLE LF)
+endfunction()

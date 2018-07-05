@@ -4,7 +4,7 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} PREFIX "ice" FILES ${sources})
 add_library(ice STATIC ${sources})
 
 include(ConfigureHeader)
-configure_header(config.hpp.in config.cpp.in ${CMAKE_CURRENT_BINARY_DIR}/src/ice/config.hpp NEWLINE_STYLE LF)
+configure_header(config.hpp.in config.cpp.in ${CMAKE_CURRENT_BINARY_DIR}/src/ice/config.hpp)
 source_group("ice" FILES ${CMAKE_CURRENT_BINARY_DIR}/src/ice/config.hpp)
 target_sources(ice PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/src/ice/config.hpp)
 
@@ -35,10 +35,26 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   target_link_libraries(ice PUBLIC c++experimental)
 endif()
 
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} DESTINATION include FILES_MATCHING PATTERN "*.hpp")
-install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/src/ice DESTINATION include FILES_MATCHING PATTERN "*.hpp")
-
 install(TARGETS ice EXPORT ice
   RUNTIME DESTINATION bin
   LIBRARY DESTINATION lib
   ARCHIVE DESTINATION lib)
+
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} DESTINATION include FILES_MATCHING PATTERN "*.hpp")
+install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/src/ice DESTINATION include FILES_MATCHING PATTERN "*.hpp")
+
+include(CMakePackageConfigHelpers)
+
+configure_package_config_file(config.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/ice-config.cmake
+  INSTALL_DESTINATION lib/cmake/ice)
+
+write_basic_package_version_file(${CMAKE_CURRENT_BINARY_DIR}/ice-config-version.cmake
+  VERSION ${PROJECT_VERSION} COMPATIBILITY SameMajorVersion)
+
+install(FILES
+  ${CMAKE_CURRENT_BINARY_DIR}/ice-config.cmake
+  ${CMAKE_CURRENT_BINARY_DIR}/ice-config-version.cmake
+  DESTINATION lib/cmake/ice)
+
+install(EXPORT ice FILE ice-targets.cmake NAMESPACE ice::
+  DESTINATION lib/cmake/ice)
