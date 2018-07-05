@@ -1,4 +1,6 @@
-function(configure_header header source output)
+include_guard(GLOBAL)
+
+macro(configure_header header source output)
   get_filename_component(header_file ${header} ABSOLUTE)
   get_filename_component(source_file ${source} ABSOLUTE)
   get_filename_component(output_file ${output} ABSOLUTE)
@@ -9,11 +11,11 @@ function(configure_header header source output)
     return()
   endif()
   
-  configure_file(${source_file} ${CMAKE_CURRENT_BINARY_DIR}/config.cpp)
+  configure_file(${source_file} ${CMAKE_CURRENT_BINARY_DIR}/config.cpp @ONLY)
   
   try_compile(CONFIG_RESULT ${CMAKE_CURRENT_BINARY_DIR}
     SOURCES ${CMAKE_CURRENT_BINARY_DIR}/config.cpp
-    CXX_STANDARD 20 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF
+    CXX_STANDARD 20 CXX_STANDARD_REQUIRED ON
     OUTPUT_VARIABLE CONFIG_OUTPUT)
 
   string(REPLACE "\n" ";" CONFIG_OUTPUT "${CONFIG_OUTPUT}")
@@ -28,10 +30,12 @@ function(configure_header header source output)
         list(GET CONFIG_ENTRY 2 ${CONFIG_TYPE}_alignment)
         set(${CONFIG_TYPE}_size "${${CONFIG_TYPE}_size}" CACHE STRING "")
         set(${CONFIG_TYPE}_alignment "${${CONFIG_TYPE}_alignment}" CACHE STRING "")
-        message(STATUS "Checking ${CONFIG_TYPE}: ${${CONFIG_TYPE}_size} ${${CONFIG_TYPE}_alignment}")
+        if(NOT CMAKE_REQUIRED_QUIET)
+          message(STATUS "Checking ${CONFIG_TYPE}: ${${CONFIG_TYPE}_size} ${${CONFIG_TYPE}_alignment}")
+        endif()
       endif()
     endif()
   endforeach()
 
   configure_file(${header_file} ${output_file} ${ARGN})
-endfunction()
+endmacro()
