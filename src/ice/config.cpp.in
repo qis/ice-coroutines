@@ -52,4 +52,5 @@ struct check;
 int main() {
   check<native_event>{};
   check<sockaddr_storage>{};
+  check<linger>{};
 }
