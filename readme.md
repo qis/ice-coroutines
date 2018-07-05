@@ -69,4 +69,4 @@ vcpkg install benchmark fmt gtest openssl zlib
 This library uses the following rules:
 1. If a function is marked `noexcept`, then it cannot throw.
 2. If a function is not marked `noexcept`, then it can throw but is unlikely to.
-3. If a constructor is not marked `noexcept`, then there is a member function `create` that can be used instead.
+3. If a constructor is not marked `noexcept`, then there is a `create` member function that can be used instead.

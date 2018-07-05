@@ -2,6 +2,7 @@
 #include <ice/config.hpp>
 #include <ice/handle.hpp>
 #include <ice/net/endpoint.hpp>
+#include <ice/net/option.hpp>
 #include <ice/service.hpp>
 #include <functional>
 #include <limits>
@@ -64,26 +65,21 @@ public:
   int type() const noexcept;
   int protocol() const noexcept;
 
-  //std::error_code get(net::option& option) const noexcept
-  //{
-  //  option.size() = option.capacity();
-  //  return get(option.level(), option.name(), option.data(), option.size());
-  //}
+  std::error_code get(net::option& option) const noexcept
+  {
+    option.size() = option.capacity();
+    return get(option.level(), option.name(), option.data(), option.size());
+  }
 
-  //std::error_code set(const net::option& option) noexcept
-  //{
-  //  return set(option.level(), option.name(), option.data(), option.size());
-  //}
+  std::error_code set(const net::option& option) noexcept
+  {
+    return set(option.level(), option.name(), option.data(), option.size());
+  }
 
   std::error_code get(int level, int name, void* data, socklen_t& size) const noexcept;
   std::error_code set(int level, int name, const void* data, socklen_t size) noexcept;
 
-  ice::service& service() noexcept
-  {
-    return service_.get();
-  }
-
-  const ice::service& service() const noexcept
+  ice::service& service() const noexcept
   {
     return service_.get();
   }
@@ -98,23 +94,30 @@ public:
     return handle_;
   }
 
-  // Local endpoint on bound sockets.
-  // Remote endpoint on connected or accepted sockets.
-  constexpr net::endpoint& endpoint() noexcept
+  constexpr net::endpoint& remote_endpoint() noexcept
   {
-    return endpoint_;
+    return remote_endpoint_;
   }
 
-  // Local endpoint on bound sockets.
-  // Remote endpoint on connected or accepted sockets.
-  constexpr const net::endpoint& endpoint() const noexcept
+  constexpr const net::endpoint& remote_endpoint() const noexcept
   {
-    return endpoint_;
+    return remote_endpoint_;
+  }
+
+  constexpr net::endpoint& local_endpoint() noexcept
+  {
+    return local_endpoint_;
+  }
+
+  constexpr const net::endpoint& local_endpoint() const noexcept
+  {
+    return local_endpoint_;
   }
 
 protected:
   std::reference_wrapper<ice::service> service_;
-  net::endpoint endpoint_;
+  net::endpoint remote_endpoint_;
+  net::endpoint local_endpoint_;
   handle_type handle_;
 
 private:

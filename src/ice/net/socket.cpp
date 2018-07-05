@@ -74,7 +74,7 @@ std::error_code socket::bind(const net::endpoint& endpoint) noexcept
     }
   }
 #endif
-  endpoint_ = endpoint;
+  local_endpoint_ = endpoint;
   return {};
 }
 
