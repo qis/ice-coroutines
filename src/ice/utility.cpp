@@ -1,5 +1,6 @@
 #include "utility.hpp"
 #include <ice/error.hpp>
+#include <fmt/ostream.h>
 #include <thread>
 #include <cassert>
 
@@ -23,7 +24,7 @@ void thread_local_storage::close_type::operator()(std::uintptr_t handle) noexcep
 #endif
 }
 
-thread_local_storage::lock::lock(handle_type::view handle, void* value) noexcept : handle_(handle)
+thread_local_storage::lock::lock(handle_view handle, void* value) noexcept : handle_(handle)
 {
 #if ICE_OS_WIN32
   [[maybe_unused]] const auto rc = ::TlsSetValue(handle_.as<DWORD>(), value);
@@ -79,10 +80,11 @@ const void* thread_local_storage::get() const noexcept
 std::error_code set_thread_affinity(std::size_t index) noexcept
 {
   assert(index < std::thread::hardware_concurrency());
+  std::error_code ec;
 #if ICE_NO_DEBUG
 #  if ICE_OS_WIN32
   if (!::SetThreadAffinityMask(::GetCurrentThread(), DWORD_PTR(1) << index)) {
-    return ice::make_error_code(::GetLastError());
+    ec = make_error_code(::GetLastError());
   }
 #  else
 #    if ICE_OS_LINUX
@@ -93,11 +95,11 @@ std::error_code set_thread_affinity(std::size_t index) noexcept
   CPU_ZERO(&cpuset);
   CPU_SET(static_cast<int>(index), &cpuset);
   if (const auto rc = ::pthread_setaffinity_np(::pthread_self(), sizeof(cpuset), &cpuset)) {
-    return ice::make_error_code(rc);
+    ec = make_error_code(rc);
   }
 #  endif
 #endif
-  return {};
+  return ec;
 }
 
 }  // namespace ice

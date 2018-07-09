@@ -20,6 +20,7 @@ class native_event
   : public native_event_storage
 #endif
 {
+  friend class service;
 public:
 #if ICE_OS_WIN32
   native_event() noexcept;
@@ -47,10 +48,21 @@ public:
   virtual ~native_event() = default;
 #endif
 
-  virtual void resume() noexcept
+  bool await_suspend(std::experimental::coroutine_handle<> awaiter) noexcept
   {
-    awaiter_.resume();
+    awaiter_ = awaiter;
+    return native_suspend();
   }
+
+  void resume() noexcept
+  {
+    if (native_resume() || !native_suspend()) {
+      awaiter_.resume();
+    }
+  }
+
+  virtual bool native_suspend() noexcept = 0;
+  virtual bool native_resume() noexcept = 0;
 
 #if ICE_OS_WIN32
   OVERLAPPED* get() noexcept
@@ -60,8 +72,13 @@ public:
 #endif
 
 protected:
-  std::experimental::coroutine_handle<> awaiter_;
   std::error_code ec_;
+
+private:
+  std::experimental::coroutine_handle<> awaiter_;
+#if ICE_OS_LINUX
+  int native_handle_ = -1;
+#endif
 };
 
 class service final : private scheduler {
@@ -79,9 +96,9 @@ public:
 #endif
   using handle_view = handle_type::view;
 
-  std::error_code create() noexcept;
+  service();
 
-  std::error_code run(std::size_t event_buffer_size = 128) noexcept;
+  void run(std::size_t event_buffer_size = 128);
 
   bool is_current() const noexcept
   {
@@ -118,7 +135,8 @@ public:
 #endif
 
 #if ICE_OS_LINUX || ICE_OS_FREEBSD
-  std::error_code queue_recv(int handle, native_event* ev) noexcept;
+  bool queue_recv(int handle, native_event* ev) noexcept;
+  bool queue_send(int handle, native_event* ev) noexcept;
 #endif
 
 private:

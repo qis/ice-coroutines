@@ -331,8 +331,8 @@ public:
   {
     switch (static_cast<ice::errc>(ev)) {
     case ice::errc::eof: return "end of file";
-    case ice::errc::format: return "format error";
-    case ice::errc::version: return "version mismatch";
+    case ice::errc::invalid_address: return "invalid address";
+    case ice::errc::version_mismatch: return "version mismatch";
     }
     return "unknown error";
   }

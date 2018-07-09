@@ -11,7 +11,7 @@ struct is_handle {
 };
 
 template <typename T>
-constexpr inline auto is_handle_v = ice::is_handle<T>::value;
+constexpr inline auto is_handle_v = is_handle<T>::value;
 
 template <typename T, auto I>
 class handle_view {
@@ -37,7 +37,7 @@ public:
 
   constexpr handle_view() noexcept = default;
 
-  template <typename V, typename = std::enable_if_t<ice::is_handle_v<V>>>
+  template <typename V, typename = std::enable_if_t<is_handle_v<V>>>
   constexpr explicit handle_view(V value) noexcept
   {
     if constexpr (std::is_pointer_v<value_type> || std::is_pointer_v<V>) {
@@ -80,7 +80,7 @@ public:
     return value_;
   }
 
-  template <typename V, typename = std::enable_if_t<ice::is_handle_v<V>>>
+  template <typename V, typename = std::enable_if_t<is_handle_v<V>>>
   constexpr V as() const noexcept
   {
     if constexpr (std::is_pointer_v<value_type> || std::is_pointer_v<V>) {
@@ -95,37 +95,37 @@ protected:
 };
 
 template <typename T, auto I>
-constexpr bool operator==(const ice::handle_view<T, I>& lhs, const ice::handle_view<T, I>& rhs) noexcept
+constexpr bool operator==(const handle_view<T, I>& lhs, const handle_view<T, I>& rhs) noexcept
 {
   return lhs.value() == rhs.value();
 }
 
 template <typename T, auto I, typename C>
-constexpr bool operator!=(const ice::handle_view<T, I>& lhs, const ice::handle_view<T, I>& rhs) noexcept
+constexpr bool operator!=(const handle_view<T, I>& lhs, const handle_view<T, I>& rhs) noexcept
 {
   return !(rhs == lhs);
 }
 
 template <typename T, auto I, typename C>
-constexpr bool operator==(const ice::handle_view<T, I>& lhs, std::common_type_t<T> value) noexcept
+constexpr bool operator==(const handle_view<T, I>& lhs, std::common_type_t<T> value) noexcept
 {
   return lhs.value() == value;
 }
 
 template <typename T, auto I, typename C>
-constexpr bool operator!=(const ice::handle_view<T, I>& lhs, std::common_type_t<T> value) noexcept
+constexpr bool operator!=(const handle_view<T, I>& lhs, std::common_type_t<T> value) noexcept
 {
   return !(lhs == value);
 }
 
 template <typename T, auto I, typename C>
-constexpr bool operator==(std::common_type_t<T> value, const ice::handle_view<T, I>& rhs) noexcept
+constexpr bool operator==(std::common_type_t<T> value, const handle_view<T, I>& rhs) noexcept
 {
   return value == rhs.value();
 }
 
 template <typename T, auto I, typename C>
-constexpr bool operator!=(std::common_type_t<T> value, const ice::handle_view<T, I>& rhs) noexcept
+constexpr bool operator!=(std::common_type_t<T> value, const handle_view<T, I>& rhs) noexcept
 {
   return !(value == rhs);
 }
@@ -138,7 +138,7 @@ public:
 
   constexpr handle() noexcept = default;
 
-  template <typename V, typename = std::enable_if_t<ice::is_handle_v<V>>>
+  template <typename V, typename = std::enable_if_t<is_handle_v<V>>>
   constexpr explicit handle(V value) noexcept : view(value)
   {}
 
@@ -177,7 +177,7 @@ public:
     reset(view::invalid_value());
   }
 
-  template <typename V, typename = std::enable_if_t<ice::is_handle_v<V>>>
+  template <typename V, typename = std::enable_if_t<is_handle_v<V>>>
   void reset(V value) noexcept
   {
     if (view::valid()) {

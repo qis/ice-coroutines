@@ -64,9 +64,3 @@ vcpkg install benchmark fmt gtest openssl zlib
 ```
 
 **NOTE**: Do not execute `vcpkg` in `cmd.exe` and `bash.exe` at the same time!
-
-## Exceptions
-This library uses the following rules:
-1. If a function is marked `noexcept`, then it cannot throw.
-2. If a function is not marked `noexcept`, then it can throw but is unlikely to.
-3. If a constructor is not marked `noexcept`, then there is a `create` member function that can be used instead.

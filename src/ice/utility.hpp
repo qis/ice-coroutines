@@ -49,14 +49,15 @@ public:
     void operator()(std::uintptr_t handle) noexcept;
   };
 #if ICE_OS_WIN32
-  using handle_type = ice::handle<std::uintptr_t, 0, close_type>;
+  using handle_type = handle<std::uintptr_t, 0, close_type>;
 #else
-  using handle_type = ice::handle<std::uintptr_t, -1, close_type>;
+  using handle_type = handle<std::uintptr_t, -1, close_type>;
 #endif
+  using handle_view = handle_type::view;
 
   class lock {
   public:
-    lock(handle_type::view handle, void* value) noexcept;
+    lock(handle_view handle, void* value) noexcept;
 
     lock(lock&& other) noexcept = default;
     lock& operator=(lock&& other) noexcept = default;
@@ -64,7 +65,7 @@ public:
     ~lock();
 
   private:
-    handle_type::view handle_;
+    handle_view handle_;
   };
 
   thread_local_storage() noexcept;
@@ -110,7 +111,7 @@ private:
 template <typename Handler>
 auto on_scope_exit(Handler&& handler) noexcept
 {
-  return ice::scope_exit<Handler>{ std::forward<Handler>(handler) };
+  return scope_exit<Handler>{ std::forward<Handler>(handler) };
 }
 
 }  // namespace ice

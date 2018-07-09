@@ -35,8 +35,7 @@ struct task_promise {
       throw;
     }
     catch (const std::system_error& e) {
-      ice::log::error(
-        "{} error {}: {} ({})", e.code().category().name(), e.code().value(), e.what(), e.code().message());
+      ice::log::error(e.code(), e.what());
     }
     catch (const std::exception& e) {
       ice::log::error(e.what());

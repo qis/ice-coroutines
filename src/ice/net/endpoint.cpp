@@ -20,24 +20,7 @@ endpoint::endpoint() noexcept
   new (&storage_) sockaddr_storage;
 }
 
-endpoint::endpoint(const endpoint& other) noexcept : size_(other.size_)
-{
-  new (static_cast<void*>(&storage_)) sockaddr_storage{ reinterpret_cast<const sockaddr_storage&>(other.storage_) };
-}
-
-endpoint& endpoint::operator=(const endpoint& other) noexcept
-{
-  reinterpret_cast<sockaddr_storage&>(storage_) = reinterpret_cast<const sockaddr_storage&>(other.storage_);
-  size_ = other.size_;
-  return *this;
-}
-
-endpoint::~endpoint()
-{
-  reinterpret_cast<sockaddr_storage&>(storage_).~sockaddr_storage();
-}
-
-endpoint::endpoint(const std::string& host, std::uint16_t port) noexcept
+endpoint::endpoint(const std::string& host, std::uint16_t port) : endpoint()
 {
   int error = 0;
   if (host.find(":", 0, 5) == std::string::npos) {
@@ -53,9 +36,32 @@ endpoint::endpoint(const std::string& host, std::uint16_t port) noexcept
     size_ = sizeof(::sockaddr_in6);
     error = ::inet_pton(AF_INET6, host.data(), &addr.sin6_addr);
   }
-  if (error != 1) {
-    clear();
+  switch (error) {
+  case 1: break;
+#if ICE_OS_WIN32
+  case -1: throw_error(::WSAGetLastError(), "endpoint"); break;
+#else
+  case -1: throw_error(errno, "endpoint"); break;
+#endif
+  default: throw_error(errc::invalid_address, "endpoint"); break;
   }
+}
+
+endpoint::endpoint(const endpoint& other) noexcept : size_(other.size_)
+{
+  new (static_cast<void*>(&storage_)) sockaddr_storage{ reinterpret_cast<const sockaddr_storage&>(other.storage_) };
+}
+
+endpoint& endpoint::operator=(const endpoint& other) noexcept
+{
+  reinterpret_cast<sockaddr_storage&>(storage_) = reinterpret_cast<const sockaddr_storage&>(other.storage_);
+  size_ = other.size_;
+  return *this;
+}
+
+endpoint::~endpoint()
+{
+  reinterpret_cast<sockaddr_storage&>(storage_).~sockaddr_storage();
 }
 
 std::string endpoint::host() const

@@ -66,10 +66,10 @@ public:
 #if ICE_EXCEPTIONS
     }
     catch (const std::exception& e) {
-      ice::printf(stderr, "critical logger error: %s\n", e.what());
+      std::fprintf(stderr, "critical logger error: %s\n", e.what());
     }
     catch (...) {
-      ice::print(stderr, "critical logger error\n");
+      std::fputs("critical logger error\n", stderr);
     }
 #endif
   }
@@ -83,7 +83,24 @@ logger g_logger;
 
 }  // namespace
 
-const char* format(level level, bool padding) noexcept
+ice::format get_level_format(level level) noexcept
+{
+  // clang-format off
+  switch (level) {
+  case level::emergency: return color::cyan;
+  case level::alert:     return color::blue;
+  case level::critical:  return color::magenta;
+  case level::error:     return color::red;
+  case level::warning:   return color::yellow;
+  case level::notice:    return color::green;
+  case level::info:      return {};
+  case level::debug:     return color::grey;
+  }
+  // clang-format on
+  return {};
+}
+
+const char* get_level_string(level level, bool padding) noexcept
 {
   // clang-format off
   switch (level) {
@@ -110,52 +127,44 @@ void limit(std::size_t queue_size) noexcept
   g_limit.store(queue_size, std::memory_order_release);
 }
 
-void queue(time_point tp, level level, ice::format format, std::string message) noexcept
+void queue(time_point tp, level level, format format, std::string message) noexcept
 {
-  if (g_count.load(std::memory_order_acquire) < g_limit.load(std::memory_order_acquire)) {
-    g_logger.queue<ice::task>({ tp, level, format, std::move(message) });
-  } else {
-    g_logger.queue<ice::sync>({ tp, level, format, std::move(message) });
-  }
-}
-
-void print(const log::entry& entry)
-{
-  const auto stream = static_cast<int>(entry.level) > static_cast<int>(log::level::error) ? stdout : stderr;
-  const auto tt = std::chrono::system_clock::to_time_t(entry.tp);
+  const auto tt = std::chrono::system_clock::to_time_t(tp);
   tm tm = {};
 #if ICE_OS_WIN32
   localtime_s(&tm, &tt);
 #else
   localtime_r(&tt, &tm);
 #endif
-  const auto year = tm.tm_year + 1900;
-  const auto month = tm.tm_mon + 1;
-  const auto day = tm.tm_mday;
-  const auto te = entry.tp.time_since_epoch();
-  const auto ms = static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(te).count() % 1000);
-  ice::printf(stream, "%04d-%02d-%02d %02d:%02d:%02d.%03d [", year, month, day, tm.tm_hour, tm.tm_min, tm.tm_sec, ms);
-  // clang-format off
-  switch (entry.level) {
-  case level::emergency: ice::print(stream, color::cyan,    "emergency"); break;
-  case level::alert:     ice::print(stream, color::blue,    "alert    "); break;
-  case level::critical:  ice::print(stream, color::magenta, "critical "); break;
-  case level::error:     ice::print(stream, color::red,     "error    "); break;
-  case level::warning:   ice::print(stream, color::yellow,  "warning  "); break;
-  case level::notice:    ice::print(stream, color::green,   "notice   "); break;
-  case level::info:      ice::print(stream,                 "info     "); break;
-  case level::debug:     ice::print(stream, color::grey,    "debug    "); break;
-  }
-  // clang-format on
-  ice::print(stream, "] ");
-  if (entry.format) {
-    ice::print(stream, entry.format, entry.message.data());
-  } else if (entry.level == level::debug) {
-    ice::print(stream, color::grey, entry.message.data());
+  const auto te = tp.time_since_epoch();
+  const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(te).count() % 1000;
+  if (g_count.load(std::memory_order_acquire) < g_limit.load(std::memory_order_acquire)) {
+    g_logger.queue<ice::task>({ tm, std::chrono::milliseconds{ ms }, level, format, std::move(message) });
   } else {
-    ice::print(stream, entry.message.data());
+    g_logger.queue<ice::sync>({ tm, std::chrono::milliseconds{ ms }, level, format, std::move(message) });
   }
-  ice::print(stream, '\n');
+}
+
+void print(const log::entry& entry)
+{
+  const auto stream = static_cast<int>(entry.level) > static_cast<int>(log::level::error) ? stdout : stderr;
+  const auto level_format = get_level_format(entry.level);
+  const auto level_string = get_level_string(entry.level);
+  fmt::print(stream, "{:%Y-%m-%d %H:%M:%S}.{:#03d} [", entry.tm, entry.ms.count());
+  if (terminal::is_tty(stream)) {
+    auto set = terminal::set(stream, level_format);
+    std::fputs(level_string, stream);
+    set = {};
+    std::fputs("] ", stream);
+    if (entry.format) {
+      set = { stream, entry.format };
+    }
+    std::fputs(entry.message.data(), stream);
+    set = {};
+    std::fputc('\n', stream);
+  } else {
+    fmt::print(stream, "{}] {}\n", level_string, entry.message);
+  }
 }
 
 }  // namespace ice::log

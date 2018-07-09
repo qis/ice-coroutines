@@ -1,6 +1,4 @@
-#include "print.hpp"
-#include <ice/error.hpp>
-#include <cstdarg>
+#include "terminal.hpp"
 
 #if ICE_OS_WIN32
 #  include <io.h>
@@ -9,12 +7,12 @@
 #  include <unistd.h>
 #endif
 
-namespace ice {
+namespace ice::terminal {
 namespace {
 
-class terminal {
+class terminal_manager {
 public:
-  terminal() noexcept :
+  terminal_manager() noexcept :
 #if ICE_OS_WIN32
     stdout_is_tty_(_isatty(_fileno(stdout)) ? true : false), stderr_is_tty_(_isatty(_fileno(stderr)) ? true : false),
     stdout_handle_(::GetStdHandle(STD_OUTPUT_HANDLE)), stderr_handle_(::GetStdHandle(STD_ERROR_HANDLE))
@@ -41,8 +39,9 @@ public:
 
   void set(FILE* stream, format format) noexcept
   {
-    assert(format);
-    assert(is_tty(stream));
+    if (!format || !is_tty(stream)) {
+      return;
+    }
 #if ICE_OS_WIN32
     // clang-format off
     switch (format.color()) {
@@ -94,7 +93,9 @@ public:
 
   void reset(FILE* stream) noexcept
   {
-    assert(is_tty(stream));
+    if (!is_tty(stream)) {
+      return;
+    }
 #if ICE_OS_WIN32
     ::SetConsoleTextAttribute(handle(stream), attributes(stream));
 #else
@@ -136,74 +137,23 @@ private:
 #endif
 };
 
-terminal g_terminal;
+terminal_manager g_terminal_manager;
 
 }  // namespace
 
-void print(FILE* stream, format format, char character) noexcept
+bool is_tty(FILE* stream) noexcept
 {
-  if (format && g_terminal.is_tty(stream)) {
-    g_terminal.set(stream, format);
-    print(stream, character);
-    g_terminal.reset(stream);
-  } else {
-    print(stream, character);
-  }
+  return g_terminal_manager.is_tty(stream);
 }
 
-void print(FILE* stream, format format, const char* buffer) noexcept
+void set(FILE* stream, format format) noexcept
 {
-  if (format && g_terminal.is_tty(stream)) {
-    g_terminal.set(stream, format);
-    print(stream, buffer);
-    g_terminal.reset(stream);
-  } else {
-    print(stream, buffer);
-  }
+  g_terminal_manager.set(stream, format);
 }
 
-void printf(FILE* stream, const char* buffer, ...) noexcept
+void reset(FILE* stream) noexcept
 {
-  va_list args;
-  va_start(args, buffer);
-  std::vfprintf(stream, buffer, args);
-  va_end(args);
+  g_terminal_manager.reset(stream);
 }
 
-void printf(FILE* stream, format format, const char* buffer, ...) noexcept
-{
-  va_list args;
-  va_start(args, buffer);
-  if (format && g_terminal.is_tty(stream)) {
-    g_terminal.set(stream, format);
-    std::vfprintf(stream, buffer, args);
-    g_terminal.reset(stream);
-  } else {
-    std::vfprintf(stream, buffer, args);
-  }
-  va_end(args);
-}
-
-void printf(const char* buffer, ...) noexcept
-{
-  va_list args;
-  va_start(args, buffer);
-  std::vfprintf(stdout, buffer, args);
-  va_end(args);
-}
-
-void printf(format format, const char* buffer, ...) noexcept
-{
-  va_list args;
-  va_start(args, buffer);
-  if (format && g_terminal.is_tty(stdout)) {
-    g_terminal.set(stdout, format);
-    std::vfprintf(stdout, buffer, args);
-    g_terminal.reset(stdout);
-  } else {
-    std::vfprintf(stdout, buffer, args);
-  }
-  va_end(args);
-}
-
-}  // namespace ice
+}  // namespace ice::terminal

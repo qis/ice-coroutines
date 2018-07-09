@@ -1,6 +1,6 @@
 #pragma once
 #include <ice/config.hpp>
-#include <ice/print.hpp>
+#include <fmt/format.h>
 #include <stdexcept>
 #include <system_error>
 #include <type_traits>
@@ -10,8 +10,8 @@ namespace ice {
 
 enum class errc {
   eof = 1,
-  format,
-  version,
+  invalid_address,
+  version_mismatch,
 };
 
 const std::error_category& native_category();
@@ -101,9 +101,10 @@ inline void throw_exception(T e) noexcept(ICE_NO_EXCEPTIONS)
 {
 #if ICE_NO_EXCEPTIONS
   if constexpr (std::is_base_of_v<std::system_error, T>) {
-    ice::print(stderr, "{} error {}: {}\n", e.code().category().name(), e.code().value(), e.what());
+    const auto ec = e.code();
+    fmt::print(stderr, "{} error {}: {} ({})\n", ec.category().name(), ec.value(), e.what(), ec.message());
   } else {
-    ice::print(stderr, "critical error: {}\n", e.what());
+    fmt::print(stderr, "critical error: {}\n", e.what());
   }
   std::abort();
 #else

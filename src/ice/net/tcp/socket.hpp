@@ -29,37 +29,24 @@ public:
   std::error_code listen(std::size_t backlog = 0);
 
   tcp::accept accept();
-  tcp::accept accept(std::error_code& ec) noexcept;
-
   tcp::connect connect(const net::endpoint& endpoint);
-  tcp::connect connect(const net::endpoint& endpoint, std::error_code& ec) noexcept;
-
   tcp::recv recv(char* data, std::size_t size);
-  tcp::recv recv(char* data, std::size_t size, std::error_code& ec) noexcept;
-
   tcp::send send(const char* data, std::size_t size);
-  tcp::send send(const char* data, std::size_t size, std::error_code& ec) noexcept;
-
   tcp::send_some send_some(const char* data, std::size_t size);
-  tcp::send_some send_some(const char* data, std::size_t size, std::error_code& ec) noexcept;
 };
 
 class accept final : public native_event {
 public:
-  accept(tcp::socket& socket, std::error_code* ec) noexcept;
+  accept(tcp::socket& socket) noexcept;
 
   bool await_ready() noexcept;
-  bool await_suspend(std::experimental::coroutine_handle<> awaiter) noexcept;
-  void resume() noexcept override;
+  bool native_suspend() noexcept override;
+  bool native_resume() noexcept override;
 
   tcp::socket await_resume() noexcept(ICE_NO_EXCEPTIONS)
   {
     if (ec_) {
-      if (handler_) {
-        *handler_ = ec_;
-      } else {
-        throw_error(ec_, "accept tcp socket");
-      }
+      throw_error(ec_, "tcp accept");
     }
     return std::move(client_);
   }
@@ -73,7 +60,6 @@ private:
   char buffer_[buffer_size * 2];
   unsigned long bytes_ = 0;
 #endif
-  std::error_code* handler_ = nullptr;
 };
 
 #if 0
@@ -221,53 +207,28 @@ private:
 
 inline tcp::accept socket::accept()
 {
-  return { *this, nullptr };
-}
-
-inline tcp::accept socket::accept(std::error_code& ec) noexcept
-{
-  return { *this, &ec };
+  return { *this };
 }
 
 #if 0
 inline tcp::connect socket::connect(const net::endpoint& endpoint)
 {
-  return { *this, endpoint, nullptr };
-}
-
-inline tcp::connect socket::connect(const net::endpoint& endpoint, std::error_code& ec) noexcept
-{
-  return { *this, endpoint, &ec };
+  return { *this, endpoint };
 }
 
 inline tcp::recv socket::recv(char* data, std::size_t size)
 {
-  return { *this, data, size, nullptr };
-}
-
-inline tcp::recv socket::recv(char* data, std::size_t size, std::error_code& ec) noexcept
-{
-  return { *this, data, size, &ec };
+  return { *this, data, size };
 }
 
 inline tcp::send socket::send(const char* data, std::size_t size)
 {
-  return { *this, data, size, nullptr };
-}
-
-inline tcp::send socket::send(const char* data, std::size_t size, std::error_code& ec) noexcept
-{
-  return { *this, data, size, &ec };
+  return { *this, data, size };
 }
 
 inline tcp::send_some socket::send_some(const char* data, std::size_t size)
 {
-  return { *this, data, size, nullptr };
-}
-
-inline tcp::send_some socket::send_some(const char* data, std::size_t size, std::error_code& ec) noexcept
-{
-  return { *this, data, size, &ec };
+  return { *this, data, size };
 }
 #endif
 

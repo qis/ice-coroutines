@@ -13,7 +13,7 @@ public:
   using storage_type = std::aligned_storage_t<sockaddr_storage_size, sockaddr_storage_alignment>;
 
   endpoint() noexcept;
-  endpoint(const std::string& host, std::uint16_t port) noexcept;
+  endpoint(const std::string& host, std::uint16_t port);
 
   endpoint(const endpoint& other) noexcept;
   endpoint& operator=(const endpoint& other) noexcept;

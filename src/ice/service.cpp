@@ -42,7 +42,7 @@ void service::close_type::operator()(int handle) noexcept
 }
 #endif
 
-std::error_code service::create() noexcept
+service::service()
 {
 #if ICE_OS_WIN32
   struct wsa {
@@ -55,50 +55,49 @@ std::error_code service::create() noexcept
       const auto major = LOBYTE(wsadata.wVersion);
       const auto minor = HIBYTE(wsadata.wVersion);
       if (major < 2 || (major == 2 && minor < 2)) {
-        ec = make_error_code(errc::version);
+        ec = make_error_code(errc::version_mismatch);
       }
     }
     std::error_code ec;
   };
   static const wsa wsa;
   if (wsa.ec) {
-    return wsa.ec;
+    throw_error(wsa.ec, "wsa startup");
   }
   handle_type handle(::CreateIoCompletionPort(INVALID_HANDLE_VALUE, nullptr, 0, 0));
   if (!handle) {
-    return make_error_code(::GetLastError());
+    throw_error(::GetLastError(), "create io completion port");
   }
 #elif ICE_OS_LINUX
   handle_type handle(::epoll_create1(0));
   if (!handle) {
-    return make_error_code(errno);
+    throw_error(errno, "create epoll");
   }
   handle_type events(::eventfd(0, EFD_NONBLOCK));
   if (!events) {
-    return make_error_code(errno);
+    throw_error(errno, "create eventfd");
   }
   epoll_event nev = { EPOLLONESHOT, {} };
   if (::epoll_ctl(handle, EPOLL_CTL_ADD, events, &nev) < 0) {
-    return make_error_code(errno);
+    throw_error(errno, "add eventfd to epoll");
   }
   events_ = std::move(events);
 #elif ICE_OS_FREEBSD
   handle_type handle(::kqueue());
   if (!handle) {
-    return make_error_code(errno);
+    throw_error(errno, "create kqueue");
   }
   struct kevent nev = {};
   EV_SET(&nev, 0, EVFILT_USER, EV_ADD | EV_CLEAR, 0, 0, nullptr);
   if (::kevent(handle, &nev, 1, nullptr, 0, nullptr) < 0) {
-    return make_error_code(errno);
+    throw_error(errno, "add user event to kqueue");
   }
 #endif
   handle_ = std::move(handle);
   interrupt();
-  return {};
 }
 
-std::error_code service::run(std::size_t event_buffer_size) noexcept
+void service::run(std::size_t event_buffer_size)
 {
 #if ICE_OS_WIN32
   using data_type = OVERLAPPED_ENTRY;
@@ -111,7 +110,6 @@ std::error_code service::run(std::size_t event_buffer_size) noexcept
   using size_type = int;
 #endif
 
-  std::error_code ec;
   std::vector<data_type> events;
   events.resize(event_buffer_size);
 
@@ -124,21 +122,19 @@ std::error_code service::run(std::size_t event_buffer_size) noexcept
     size_type count = 0;
     if (!::GetQueuedCompletionStatusEx(handle_.as<HANDLE>(), events_data, events_size, &count, INFINITE, FALSE)) {
       if (const auto rc = ::GetLastError(); rc != ERROR_ABANDONED_WAIT_0) {
-        ec = make_error_code(rc);
+        throw_error(rc, "get queued completion status");
       }
       break;
     }
 #elif ICE_OS_LINUX
     const auto count = ::epoll_wait(handle_, events_data, events_size, -1);
     if (count < 0 && errno != EINTR) {
-      ec = make_error_code(errno);
-      break;
+      throw_error(errno, "get epoll events");
     }
 #elif ICE_OS_FREEBSD
     const auto count = ::kevent(handle_, nullptr, 0, events_data, events_size, nullptr);
     if (count < 0 && errno != EINTR) {
-      ec = make_error_code(errno);
-      break;
+      throw_error(errno, "get kqueue events");
     }
 #endif
     auto stop = false;
@@ -150,12 +146,16 @@ std::error_code service::run(std::size_t event_buffer_size) noexcept
         continue;
       }
 #elif ICE_OS_LINUX
-      if (const auto ev = reinterpret_cast<event*>(entry.data.ptr)) {
+      if (const auto ev = reinterpret_cast<native_event*>(entry.data.ptr)) {
+        if (ev->native_handle_ != -1) {
+          ::epoll_ctl(handle_, EPOLL_CTL_DEL, ev->native_handle_, &entry);
+          ev->native_handle_ = -1;
+        }
         ev->resume();
         continue;
       }
 #elif ICE_OS_FREEBSD
-      if (const auto ev = reinterpret_cast<event*>(entry.udata)) {
+      if (const auto ev = reinterpret_cast<native_event*>(entry.udata)) {
         ev->resume();
         continue;
       }
@@ -167,29 +167,63 @@ std::error_code service::run(std::size_t event_buffer_size) noexcept
       break;
     }
   }
-  return ec;
 }
 
 #if ICE_OS_LINUX
 
-std::error_code service::queue_recv(int handle, native_event* ev) noexcept
+bool service::queue_recv(int handle, native_event* ev) noexcept
 {
-  struct epoll_event nev { EPOLLIN | EPOLLONESHOT, {} };
+  assert(ev);
+  assert(ev->native_handle_ == -1);
+  ev->native_handle_ = handle;
+  struct epoll_event nev {
+    EPOLLIN | EPOLLONESHOT, {}
+  };
   nev.data.ptr = ev;
   if (::epoll_ctl(handle_, EPOLL_CTL_ADD, handle, &nev) < 0) {
-    return make_error_code(errno);
+    ev->ec_ = make_error_code(errno);
+    return false;
   }
-  return {};
+  return true;
+}
+
+bool service::queue_send(int handle, native_event* ev) noexcept
+{
+  assert(ev);
+  assert(ev->native_handle_ == -1);
+  ev->native_handle_ = handle;
+  struct epoll_event nev {
+    EPOLLOUT | EPOLLONESHOT, {}
+  };
+  nev.data.ptr = ev;
+  if (::epoll_ctl(handle_, EPOLL_CTL_ADD, handle, &nev) < 0) {
+    ev->ec_ = make_error_code(errno);
+    return false;
+  }
+  return true;
 }
 
 #elif ICE_OS_FREEBSD
 
 bool service::queue_recv(int handle, native_event* ev) noexcept
 {
-  native_event nev;
-  EV_SET(&nev, static_cast<uintptr_t>(id), EVFILT_READ, EV_ADD | EV_ONESHOT, 0, 0, this);
-  if (::kevent(context, &nev, 1, nullptr, 0, nullptr) < 0) {
-    ec_ = errno;
+  assert(ev);
+  struct kevent nev;
+  EV_SET(&nev, static_cast<uintptr_t>(handle), EVFILT_READ, EV_ADD | EV_ONESHOT, 0, 0, ev);
+  if (::kevent(handle_, &nev, 1, nullptr, 0, nullptr) < 0) {
+    ev->ec_ = make_error_code(errno);
+    return false;
+  }
+  return true;
+}
+
+bool service::queue_send(int handle, native_event* ev) noexcept
+{
+  assert(ev);
+  struct kevent nev;
+  EV_SET(&nev, static_cast<uintptr_t>(handle), EVFILT_WRITE, EV_ADD | EV_ONESHOT, 0, 0, ev);
+  if (::kevent(handle_, &nev, 1, nullptr, 0, nullptr) < 0) {
+    ev->ec_ = make_error_code(errno);
     return false;
   }
   return true;
