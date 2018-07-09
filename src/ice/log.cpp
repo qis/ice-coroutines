@@ -56,8 +56,7 @@ public:
     }
   }
 
-  template <typename T>
-  T queue(log::entry entry) noexcept
+  task queue(log::entry entry) noexcept
   {
 #if ICE_EXCEPTIONS
     try {
@@ -72,6 +71,25 @@ public:
       std::fputs("critical logger error\n", stderr);
     }
 #endif
+  }
+
+  task queue(const log::entry& entry, std::atomic_bool& completed, std::condition_variable& cv) noexcept
+  {
+#if ICE_EXCEPTIONS
+    try {
+#endif
+      co_await post{ context_, std::move(entry) };
+#if ICE_EXCEPTIONS
+    }
+    catch (const std::exception& e) {
+      std::fprintf(stderr, "critical logger error: %s\n", e.what());
+    }
+    catch (...) {
+      std::fputs("critical logger error\n", stderr);
+    }
+#endif
+    completed.store(true, std::memory_order_release);
+    cv.notify_one();
   }
 
 private:
@@ -139,9 +157,14 @@ void queue(time_point tp, level level, format format, std::string message) noexc
   const auto te = tp.time_since_epoch();
   const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(te).count() % 1000;
   if (g_count.load(std::memory_order_acquire) < g_limit.load(std::memory_order_acquire)) {
-    g_logger.queue<ice::task>({ tm, std::chrono::milliseconds{ ms }, level, format, std::move(message) });
+    g_logger.queue({ tm, std::chrono::milliseconds{ ms }, level, format, std::move(message) });
   } else {
-    g_logger.queue<ice::sync>({ tm, std::chrono::milliseconds{ ms }, level, format, std::move(message) });
+    std::atomic_bool completed = false;
+    std::condition_variable cv;
+    std::mutex mutex;
+    g_logger.queue({ tm, std::chrono::milliseconds{ ms }, level, format, std::move(message) }, completed, cv);
+    std::unique_lock lock{ mutex };
+    cv.wait(lock, [&]() { return completed.load(std::memory_order_acquire); });
   }
 }
 

@@ -82,7 +82,8 @@ private:
   handle_type handle_;
 };
 
-std::error_code set_thread_affinity(std::size_t index) noexcept;
+void set_thread_affinity(std::size_t index);
+void set_thread_affinity(std::size_t index, std::error_code& ec) noexcept;
 
 template <typename Handler>
 class scope_exit {

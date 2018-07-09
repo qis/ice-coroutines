@@ -42,7 +42,7 @@ void service::close_type::operator()(int handle) noexcept
 }
 #endif
 
-std::error_code service::create(std::size_t concurrency_hint) noexcept
+service::service(std::size_t concurrency_hint)
 {
 #if ICE_OS_WIN32
   struct wsa {
@@ -62,45 +62,68 @@ std::error_code service::create(std::size_t concurrency_hint) noexcept
   };
   static const wsa wsa;
   if (wsa.ec) {
-    return wsa.ec;
+    throw_error(wsa.ec, "wsa startup");
+    return;
   }
   handle_type handle(::CreateIoCompletionPort(INVALID_HANDLE_VALUE, nullptr, 0, static_cast<DWORD>(concurrency_hint)));
   if (!handle) {
-    return make_error_code(::GetLastError());
+    throw_error(::GetLastError(), "create completion port");
+    return;
   }
 #elif ICE_OS_LINUX
   (void)concurrency_hint;
   handle_type handle(::epoll_create1(0));
   if (!handle) {
-    return make_error_code(errno);
+    throw_error(errno, "create epoll");
+    return;
   }
   handle_type events(::eventfd(0, EFD_NONBLOCK));
   if (!events) {
-    return make_error_code(errno);
+    throw_error(errno, "create eventfd");
+    return;
   }
   epoll_event nev = { EPOLLONESHOT, {} };
   if (::epoll_ctl(handle, EPOLL_CTL_ADD, events, &nev) < 0) {
-    return make_error_code(errno);
+    throw_error(errno, "add eventfd to epoll");
+    return;
   }
   events_ = std::move(events);
 #elif ICE_OS_FREEBSD
   (void)concurrency_hint;
   handle_type handle(::kqueue());
   if (!handle) {
-    return make_error_code(errno);
+    throw_error(errno, "create kqueue");
+    return;
   }
   struct kevent nev = {};
   EV_SET(&nev, 0, EVFILT_USER, EV_ADD | EV_CLEAR, 0, 0, nullptr);
   if (::kevent(handle, &nev, 1, nullptr, 0, nullptr) < 0) {
-    return make_error_code(errno);
+    throw_error(errno, "add notification event to kqueue");
+    return;
   }
 #endif
   handle_ = std::move(handle);
   interrupt();
-  return {};
 }
 
-std::error_code service::run(std::size_t event_buffer_size) noexcept
+void service::run()
+{
+  run(128);
+}
+
+void service::run(std::error_code& ec) noexcept
+{
+  run(128, ec);
+}
+
+void service::run(std::size_t event_buffer_size)
+{
+  std::error_code ec;
+  run(event_buffer_size, ec);
+  throw_on_error(ec, "run service");
+}
+
+void service::run(std::size_t event_buffer_size, std::error_code& ec) noexcept
 {
 #if ICE_OS_WIN32
   using data_type = OVERLAPPED_ENTRY;
@@ -125,22 +148,26 @@ std::error_code service::run(std::size_t event_buffer_size) noexcept
     size_type count = 0;
     if (!::GetQueuedCompletionStatusEx(handle_.as<HANDLE>(), events_data, events_size, &count, INFINITE, FALSE)) {
       if (const auto rc = ::GetLastError(); rc != ERROR_ABANDONED_WAIT_0) {
-        return make_error_code(rc);
+        ec = make_error_code(rc);
+        return;
       }
       break;
     }
 #elif ICE_OS_LINUX
     const auto count = ::epoll_wait(handle_, events_data, events_size, -1);
     if (count < 0 && errno != EINTR) {
-      return make_error_code(errno);
+      ec = make_error_code(errno);
+      return;
     }
 #elif ICE_OS_FREEBSD
     const auto count = ::kevent(handle_, nullptr, 0, events_data, events_size, nullptr);
     if (count < 0 && errno != EINTR) {
-      return make_error_code(errno);
+      ec = make_error_code(errno);
+      return;
     }
 #endif
     auto stop = false;
+    auto interrupted = false;
     for (size_type i = 0; i < count; i++) {
       auto& entry = events_data[i];
 #if ICE_OS_WIN32
@@ -163,14 +190,16 @@ std::error_code service::run(std::size_t event_buffer_size) noexcept
         continue;
       }
 #endif
+      interrupted = true;
       stop = stop_.load(std::memory_order_acquire);
+    }
+    if (interrupted) {
       process();
     }
     if (stop) {
       break;
     }
   }
-  return {};
 }
 
 #if ICE_OS_LINUX

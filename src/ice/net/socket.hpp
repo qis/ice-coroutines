@@ -1,5 +1,6 @@
 #pragma once
 #include <ice/config.hpp>
+#include <ice/error.hpp>
 #include <ice/handle.hpp>
 #include <ice/net/endpoint.hpp>
 #include <ice/net/option.hpp>
@@ -48,9 +49,20 @@ public:
     return handle_.valid();
   }
 
-  std::error_code create(int family, int type, int protocol = 0) noexcept;
-  std::error_code bind(const net::endpoint& endpoint) noexcept;
-  std::error_code shutdown(net::shutdown direction = net::shutdown::both) noexcept;
+  void create(int family, int type);
+  void create(int family, int type, std::error_code& ec) noexcept;
+
+  void create(int family, int type, int protocol);
+  void create(int family, int type, int protocol, std::error_code& ec) noexcept;
+
+  void bind(const net::endpoint& endpoint);
+  void bind(const net::endpoint& endpoint, std::error_code& ec) noexcept;
+
+  void shutdown();
+  void shutdown(std::error_code& ec) noexcept;
+
+  void shutdown(net::shutdown direction);
+  void shutdown(net::shutdown direction, std::error_code& ec) noexcept;
 
   void close() noexcept
   {
@@ -65,19 +77,38 @@ public:
   int type() const noexcept;
   int protocol() const noexcept;
 
-  std::error_code get(net::option& option) const noexcept
+  template <typename T>
+  std::enable_if_t<std::is_base_of_v<net::option, T>, T> get() const
   {
+    std::error_code ec;
+    const auto value = get<T>(ec);
+    throw_on_error(ec, "get socket option");
+    return value;
+  }
+
+  template <typename T>
+  std::enable_if_t<std::is_base_of_v<net::option, T>, T> get(std::error_code& ec) const noexcept
+  {
+    T option;
     option.size() = option.capacity();
-    return get(option.level(), option.name(), option.data(), option.size());
+    get(option.level(), option.name(), option.data(), option.size(), ec);
+    return option;
   }
 
-  std::error_code set(const net::option& option) noexcept
+  void set(const net::option& option)
   {
-    return set(option.level(), option.name(), option.data(), option.size());
+    std::error_code ec;
+    set(option.level(), option.name(), option.data(), option.size(), ec);
+    throw_on_error(ec, "set socket option");
   }
 
-  std::error_code get(int level, int name, void* data, socklen_t& size) const noexcept;
-  std::error_code set(int level, int name, const void* data, socklen_t size) noexcept;
+  void set(const net::option& option, std::error_code& ec) noexcept
+  {
+    set(option.level(), option.name(), option.data(), option.size(), ec);
+  }
+
+  void get(int level, int name, void* data, socklen_t& size, std::error_code& ec) const noexcept;
+  void set(int level, int name, const void* data, socklen_t size, std::error_code& ec) noexcept;
 
   ice::service& service() const noexcept
   {

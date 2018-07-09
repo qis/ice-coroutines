@@ -17,10 +17,17 @@ public:
   socket(ice::service& service, int family);
   socket(ice::service& service, int family, int protocol);
 
-  std::error_code create(int family) noexcept;
-  std::error_code create(int family, int protocol) noexcept;
+  void create(int family);
+  void create(int family, std::error_code& ec) noexcept;
 
-  std::error_code listen(std::size_t backlog = 0);
+  void create(int family, int protocol);
+  void create(int family, int protocol, std::error_code& ec) noexcept;
+
+  void listen();
+  void listen(std::error_code& ec) noexcept;
+
+  void listen(std::size_t backlog);
+  void listen(std::size_t backlog, std::error_code& ec) noexcept;
 
   //tcp::accept accept();
   //tcp::connect connect(const net::endpoint& endpoint);

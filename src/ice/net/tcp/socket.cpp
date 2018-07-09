@@ -57,33 +57,63 @@ socket::socket(ice::service& service, int family) : net::socket(service, family,
 
 socket::socket(ice::service& service, int family, int protocol) : net::socket(service, family, SOCK_STREAM, protocol) {}
 
-std::error_code socket::create(int family) noexcept
+void socket::create(int family)
 {
-  return net::socket::create(family, SOCK_STREAM, IPPROTO_TCP);
+  create(family, IPPROTO_TCP);
 }
 
-std::error_code socket::create(int family, int protocol) noexcept
+void socket::create(int family, std::error_code& ec) noexcept
 {
-  return net::socket::create(family, SOCK_STREAM, protocol);
+  create(family, IPPROTO_TCP, ec);
 }
 
-std::error_code socket::listen(std::size_t backlog)
+void socket::create(int family, int protocol)
+{
+  std::error_code ec;
+  create(family, protocol, ec);
+  throw_on_error(ec, "create tcp socket");
+}
+
+void socket::create(int family, int protocol, std::error_code& ec) noexcept
+{
+  net::socket::create(family, SOCK_STREAM, protocol, ec);
+}
+
+void socket::listen()
+{
+  listen(0);
+}
+
+void socket::listen(std::error_code& ec) noexcept
+{
+  listen(0, ec);
+}
+
+void socket::listen(std::size_t backlog)
+{
+  std::error_code ec;
+  listen(backlog, ec);
+  throw_on_error(ec, "listen on tcp socket");
+}
+
+void socket::listen(std::size_t backlog, std::error_code& ec) noexcept
 {
   const auto size = backlog > 0 ? static_cast<int>(backlog) : SOMAXCONN;
 #if ICE_OS_WIN32
   if (::listen(handle_, size) == SOCKET_ERROR) {
-    return make_error_code(::WSAGetLastError());
+    ec = make_error_code(::WSAGetLastError());
+    return;
   }
 #else
   if (::listen(handle_, size) < 0) {
-    return make_error_code(errno);
+    ec = make_error_code(errno);
+    return;
   }
 #endif
 #if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__)
   ::linger data = { 1, 0 };
   ::setsockopt(handle_, SOL_SOCKET, SO_LINGER, &data, sizeof(data));
 #endif
-  return {};
 }
 
 }  // namespace ice::net::tcp

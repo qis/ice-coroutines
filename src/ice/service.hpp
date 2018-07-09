@@ -82,8 +82,13 @@ public:
 #endif
   using handle_view = handle_type::view;
 
-  std::error_code create(std::size_t concurrency_hint = 1) noexcept;
-  std::error_code run(std::size_t event_buffer_size = 128) noexcept;
+  service(std::size_t concurrency_hint = 1);
+
+  void run();
+  void run(std::error_code& ec) noexcept;
+
+  void run(std::size_t event_buffer_size);
+  void run(std::size_t event_buffer_size, std::error_code& ec) noexcept;
 
   bool is_current() const noexcept
   {
