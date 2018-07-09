@@ -87,6 +87,9 @@ struct sync {
 
   sync(promise_type* promise) noexcept(ICE_NO_EXCEPTIONS) : state_(std::make_unique<state>())
   {
+#if ICE_EXCEPTIONS
+    uncaught_exceptions_ = std::uncaught_exceptions();
+#endif
     promise->state_ = state_.get();
   }
 
@@ -99,8 +102,8 @@ struct sync {
   {
     if (auto state = join()) {
 #if ICE_EXCEPTIONS
-      if (state_->exception && std::uncaught_exceptions() == 0) {
-        std::rethrow_exception(state_->exception);
+      if (state->exception && uncaught_exceptions_ == std::uncaught_exceptions()) {
+        std::rethrow_exception(state->exception);
       }
 #endif
     }
@@ -110,8 +113,8 @@ struct sync {
   {
     if (auto state = join()) {
 #if ICE_EXCEPTIONS
-      if (state_->exception) {
-        std::rethrow_exception(state_->exception);
+      if (state->exception) {
+        std::rethrow_exception(state->exception);
       }
 #endif
     }
@@ -120,8 +123,8 @@ struct sync {
   std::unique_ptr<state> join() noexcept
   {
     if (auto state = std::exchange(state_, nullptr)) {
-      std::unique_lock lock{ state_->mutex };
-      state_->cv.wait(lock, [this]() { return state_->ready.load(std::memory_order_acquire); });
+      std::unique_lock lock{ state->mutex };
+      state->cv.wait(lock, [&]() { return state->ready.load(std::memory_order_acquire); });
       return state;
     }
     return {};
@@ -129,6 +132,9 @@ struct sync {
 
 private:
   std::unique_ptr<state> state_;
+#if ICE_EXCEPTIONS
+  int uncaught_exceptions_ = 0;
+#endif
 };
 
 }  // namespace ice
