@@ -14,8 +14,6 @@
 #  include <unistd.h>
 #endif
 
-#include <ice/log.hpp>
-
 namespace ice::net::tcp {
 namespace detail {
 
@@ -86,29 +84,6 @@ std::error_code socket::listen(std::size_t backlog)
   ::setsockopt(handle_, SOL_SOCKET, SO_LINGER, &data, sizeof(data));
 #endif
   return {};
-}
-
-accept::accept(tcp::socket& socket) noexcept :
-  service_(socket.service()), socket_(socket.handle()), client_(socket.service())
-{
-#if ICE_OS_WIN32
-  ec_ = client_.create(socket.family(), socket.protocol());
-#endif
-}
-
-bool accept::await_ready() noexcept
-{
-  return true;
-}
-
-bool accept::native_suspend() noexcept
-{
-  return false;
-}
-
-bool accept::native_resume() noexcept
-{
-  return true;
 }
 
 }  // namespace ice::net::tcp

@@ -14,6 +14,10 @@ constexpr std::size_t iterations = 100000;
 static void service_verify(benchmark::State& state) noexcept
 {
   static ice::service c0;
+  if (const auto ec = c0.create()) {
+    state.SkipWithError(ec.message().data());
+    return;
+  }
   [&]() -> ice::task {
     for (auto _ : state) {
       co_await c0.schedule();
@@ -22,6 +26,7 @@ static void service_verify(benchmark::State& state) noexcept
   }();
   if (const auto ec = ice::set_thread_affinity(0)) {
     state.SkipWithError(ec.message().data());
+    return;
   }
   c0.run();
 }
@@ -31,6 +36,10 @@ BENCHMARK(service_verify)->Threads(1)->Iterations(iterations);
 static void service_append(benchmark::State& state) noexcept
 {
   static ice::service c0;
+  if (const auto ec = c0.create()) {
+    state.SkipWithError(ec.message().data());
+    return;
+  }
   [&]() -> ice::task {
     for (auto _ : state) {
       co_await c0.schedule(true);
@@ -47,7 +56,15 @@ BENCHMARK(service_append)->Threads(1)->Iterations(iterations);
 static void service_switch(benchmark::State& state) noexcept
 {
   static ice::service c0;
+  if (const auto ec = c0.create()) {
+    state.SkipWithError(ec.message().data());
+    return;
+  }
   static ice::service c1;
+  if (const auto ec = c1.create()) {
+    state.SkipWithError(ec.message().data());
+    return;
+  }
   auto t0 = std::thread([&]() {
     ice::set_thread_affinity(0);
     c0.run();
@@ -79,7 +96,15 @@ BENCHMARK(service_switch)->Threads(1)->Iterations(iterations);
 static void service_always(benchmark::State& state) noexcept
 {
   static ice::service c0;
+  if (const auto ec = c0.create()) {
+    state.SkipWithError(ec.message().data());
+    return;
+  }
   static ice::service c1;
+  if (const auto ec = c1.create()) {
+    state.SkipWithError(ec.message().data());
+    return;
+  }
   auto t0 = std::thread([&]() {
     ice::set_thread_affinity(0);
     c0.run();

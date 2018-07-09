@@ -4,10 +4,16 @@
 #include <fmt/format.h>
 #include <fmt/time.h>
 #include <chrono>
+#include <experimental/coroutine>
 #include <memory>
 #include <string>
 #include <string_view>
 #include <cstdint>
+
+#if ICE_EXCEPTIONS
+#  include <exception>
+#  include <system_error>
+#endif
 
 namespace ice::log {
 
@@ -118,5 +124,47 @@ inline void debug(Args&&... args)
 }
 
 void print(const entry& entry);
+
+struct task {
+  struct promise_type {
+    constexpr task get_return_object() const noexcept
+    {
+      return {};
+    }
+
+    constexpr auto initial_suspend() const noexcept
+    {
+      return std::experimental::suspend_never{};
+    }
+
+    constexpr auto final_suspend() const noexcept
+    {
+      return std::experimental::suspend_never{};
+    }
+
+    constexpr void return_void() const noexcept {}
+
+#if ICE_EXCEPTIONS || defined(__clang__)
+    void unhandled_exception() const noexcept(ICE_NO_EXCEPTIONS)
+    {
+#  if ICE_EXCEPTIONS
+      try {
+        throw;
+      }
+      catch (const std::system_error& e) {
+        const auto ec = e.code();
+        error("unhandled exception: {} error {}: {} ({})", ec.category().name(), ec.value(), e.what(), ec.message());
+      }
+      catch (const std::exception& e) {
+        error("unhandled exception: {}", e.what());
+      }
+      catch (...) {
+        error("unhandled exception");
+      }
+#  endif
+    }
+#endif
+  };
+};
 
 }  // namespace ice::log

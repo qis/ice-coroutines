@@ -152,15 +152,15 @@ void print(const log::entry& entry)
   const auto level_string = get_level_string(entry.level);
   fmt::print(stream, "{:%Y-%m-%d %H:%M:%S}.{:#03d} [", entry.tm, entry.ms.count());
   if (terminal::is_tty(stream)) {
-    auto set = terminal::set(stream, level_format);
+    terminal::manager manager{ stream, level_format };
     std::fputs(level_string, stream);
-    set = {};
+    manager.reset();
     std::fputs("] ", stream);
     if (entry.format) {
-      set = { stream, entry.format };
+      manager.set(entry.format);
     }
     std::fputs(entry.message.data(), stream);
-    set = {};
+    manager.reset();
     std::fputc('\n', stream);
   } else {
     fmt::print(stream, "{}] {}\n", level_string, entry.message);

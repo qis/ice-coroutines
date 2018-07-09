@@ -60,33 +60,33 @@ public:
     // clang-format off
     switch (format.color()) {
     case color::none:    break;
-    case color::grey:    print(stream, "\033[38;2;130;130;130m"); break;  // // mintty cannot display "\033[30m"
-    case color::red:     print(stream, "\033[31m"); break;
-    case color::green:   print(stream, "\033[32m"); break;
-    case color::yellow:  print(stream, "\033[33m"); break;
-    case color::blue:    print(stream, "\033[34m"); break;
-    case color::magenta: print(stream, "\033[35m"); break;
-    case color::cyan:    print(stream, "\033[36m"); break;
-    case color::white:   print(stream, "\033[37m"); break;
+    case color::grey:    std::fputs("\033[38;2;130;130;130m", stream); break;  // mintty cannot display "\033[30m"
+    case color::red:     std::fputs("\033[31m", stream); break;
+    case color::green:   std::fputs("\033[32m", stream); break;
+    case color::yellow:  std::fputs("\033[33m", stream); break;
+    case color::blue:    std::fputs("\033[34m", stream); break;
+    case color::magenta: std::fputs("\033[35m", stream); break;
+    case color::cyan:    std::fputs("\033[36m", stream); break;
+    case color::white:   std::fputs("\033[37m", stream); break;
     }
     // clang-format on
     if (format.is(style::bold)) {
-      print(stream, "\033[1m");
+      std::fputs("\033[1m", stream);
     }
     if (format.is(style::dark)) {
-      print(stream, "\033[2m");
+      std::fputs("\033[2m", stream);
     }
     if (format.is(style::underline)) {
-      print(stream, "\033[4m");
+      std::fputs("\033[4m", stream);
     }
     if (format.is(style::blink)) {
-      print(stream, "\033[5m");
+      std::fputs("\033[5m", stream);
     }
     if (format.is(style::reverse)) {
-      print(stream, "\033[7m");
+      std::fputs("\033[7m", stream);
     }
     if (format.is(style::conceal)) {
-      print(stream, "\033[8m");
+      std::fputs("\033[8m", stream);
     }
 #endif
   }
@@ -99,7 +99,7 @@ public:
 #if ICE_OS_WIN32
     ::SetConsoleTextAttribute(handle(stream), attributes(stream));
 #else
-    print(stream, "\033[00m");
+    std::fputs("\033[00m", stream);
 #endif
   }
 

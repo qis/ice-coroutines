@@ -1,5 +1,6 @@
 #pragma once
 #include <ice/config.hpp>
+#include <ice/terminal.hpp>
 #include <fmt/format.h>
 #include <stdexcept>
 #include <system_error>
@@ -100,12 +101,14 @@ template <typename T>
 inline void throw_exception(T e) noexcept(ICE_NO_EXCEPTIONS)
 {
 #if ICE_NO_EXCEPTIONS
+  terminal::manager manager{ stderr, color::red | style::bold };
   if constexpr (std::is_base_of_v<std::system_error, T>) {
     const auto ec = e.code();
     fmt::print(stderr, "{} error {}: {} ({})\n", ec.category().name(), ec.value(), e.what(), ec.message());
   } else {
     fmt::print(stderr, "critical error: {}\n", e.what());
   }
+  manager.reset();
   std::abort();
 #else
   throw e;

@@ -20,6 +20,8 @@ public:
 
   ~endpoint();
 
+  std::error_code create(const std::string& host, std::uint16_t port) noexcept;
+
   std::string host() const;
   std::uint16_t port() const noexcept;
 

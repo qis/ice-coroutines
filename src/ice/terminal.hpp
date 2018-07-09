@@ -90,35 +90,40 @@ bool is_tty(FILE* stream) noexcept;
 void set(FILE* stream, format format) noexcept;
 void reset(FILE* stream) noexcept;
 
-class set {
+class manager {
 public:
-  set() noexcept = default;
-  set(FILE* stream, format format) noexcept;
-
-  set(set&& other) noexcept : stream_(other.stream_), reset_(other.reset_)
+  manager() noexcept = default;
+  manager(FILE* stream, format format) noexcept : stream_(stream)
   {
-    other.reset_ = false;
+    set(format);
   }
 
-  set(const set& other) = delete;
+  manager(manager&& other) = delete;
+  manager(const manager& other) = delete;
+  manager& operator=(manager&& other) = delete;
+  manager& operator=(const manager& other) = delete;
 
-  set& operator=(set&& other) noexcept
-  {
-    reset();
-    stream_ = other.stream_;
-    reset_ = other.reset_;
-    other.reset_ = false;
-    return *this;
-  }
-
-  set& operator=(const set& other) = delete;
-
-  ~set()
+  ~manager()
   {
     reset();
   }
 
-  void reset() noexcept;
+  void set(format format) noexcept
+  {
+    reset();
+    if (format) {
+      terminal::set(stream_, format);
+      reset_ = true;
+    }
+  }
+
+  void reset() noexcept
+  {
+    if (reset_) {
+      terminal::reset(stream_);
+      reset_ = false;
+    }
+  }
 
 private:
   FILE* stream_ = nullptr;

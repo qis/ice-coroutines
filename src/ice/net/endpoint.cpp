@@ -22,28 +22,8 @@ endpoint::endpoint() noexcept
 
 endpoint::endpoint(const std::string& host, std::uint16_t port) : endpoint()
 {
-  int error = 0;
-  if (host.find(":", 0, 5) == std::string::npos) {
-    auto& addr = sockaddr_in();
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(port);
-    size_ = sizeof(::sockaddr_in);
-    error = ::inet_pton(AF_INET, host.data(), &addr.sin_addr);
-  } else {
-    auto& addr = sockaddr_in6();
-    addr.sin6_family = AF_INET6;
-    addr.sin6_port = htons(port);
-    size_ = sizeof(::sockaddr_in6);
-    error = ::inet_pton(AF_INET6, host.data(), &addr.sin6_addr);
-  }
-  switch (error) {
-  case 1: break;
-#if ICE_OS_WIN32
-  case -1: throw_error(::WSAGetLastError(), "endpoint"); break;
-#else
-  case -1: throw_error(errno, "endpoint"); break;
-#endif
-  default: throw_error(errc::invalid_address, "endpoint"); break;
+  if (const auto ec = create(host, port)) {
+    throw_error(ec, "endpoint");
   }
 }
 
@@ -62,6 +42,34 @@ endpoint& endpoint::operator=(const endpoint& other) noexcept
 endpoint::~endpoint()
 {
   reinterpret_cast<sockaddr_storage&>(storage_).~sockaddr_storage();
+}
+
+std::error_code endpoint::create(const std::string& host, std::uint16_t port) noexcept
+{
+  int error = 0;
+  if (host.find(":", 0, 5) == std::string::npos) {
+    auto& addr = sockaddr_in();
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(port);
+    size_ = sizeof(::sockaddr_in);
+    error = ::inet_pton(AF_INET, host.data(), &addr.sin_addr);
+  } else {
+    auto& addr = sockaddr_in6();
+    addr.sin6_family = AF_INET6;
+    addr.sin6_port = htons(port);
+    size_ = sizeof(::sockaddr_in6);
+    error = ::inet_pton(AF_INET6, host.data(), &addr.sin6_addr);
+  }
+  switch (error) {
+  case 1: break;
+#if ICE_OS_WIN32
+  case -1: return make_error_code(::WSAGetLastError()); break;
+#else
+  case -1: return make_error_code(errno); break;
+#endif
+  default: return make_error_code(errc::invalid_address); break;
+  }
+  return {};
 }
 
 std::string endpoint::host() const

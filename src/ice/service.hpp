@@ -48,21 +48,7 @@ public:
   virtual ~native_event() = default;
 #endif
 
-  bool await_suspend(std::experimental::coroutine_handle<> awaiter) noexcept
-  {
-    awaiter_ = awaiter;
-    return native_suspend();
-  }
-
-  void resume() noexcept
-  {
-    if (native_resume() || !native_suspend()) {
-      awaiter_.resume();
-    }
-  }
-
-  virtual bool native_suspend() noexcept = 0;
-  virtual bool native_resume() noexcept = 0;
+  virtual void resume() noexcept = 0;
 
 #if ICE_OS_WIN32
   OVERLAPPED* get() noexcept
@@ -73,9 +59,9 @@ public:
 
 protected:
   std::error_code ec_;
+  std::experimental::coroutine_handle<> awaiter_;
 
 private:
-  std::experimental::coroutine_handle<> awaiter_;
 #if ICE_OS_LINUX
   int native_handle_ = -1;
 #endif
@@ -96,9 +82,8 @@ public:
 #endif
   using handle_view = handle_type::view;
 
-  service();
-
-  void run(std::size_t event_buffer_size = 128);
+  std::error_code create(std::size_t concurrency_hint = 1) noexcept;
+  std::error_code run(std::size_t event_buffer_size = 128) noexcept;
 
   bool is_current() const noexcept
   {
