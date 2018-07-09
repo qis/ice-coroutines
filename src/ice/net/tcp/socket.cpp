@@ -116,4 +116,29 @@ void socket::listen(std::size_t backlog, std::error_code& ec) noexcept
 #endif
 }
 
+accept::accept(socket& socket, std::error_code* ec) noexcept : socket_(socket), client_(socket.service()), uec_(ec)
+{
+#if ICE_OS_WIN32
+  client_.create(socket_.family(), socket_.protocol(), ec_);
+#endif
+}
+
+bool accept::await_ready() noexcept
+{
+  return true;
+}
+
+bool accept::await_suspend(std::experimental::coroutine_handle<> awaiter) noexcept
+{
+  awaiter_ = awaiter;
+  return true;
+}
+
+void accept::resume() noexcept
+{
+  if (await_ready() || !await_suspend(awaiter_)) {
+    awaiter_.resume();
+  }
+}
+
 }  // namespace ice::net::tcp

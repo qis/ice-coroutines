@@ -117,7 +117,7 @@ void socket::shutdown(net::shutdown direction)
 {
   std::error_code ec;
   shutdown(direction, ec);
-  throw_error(ec, "socket shutdown");
+  throw_error(ec, "shutdown socket");
 }
 
 void socket::shutdown(net::shutdown direction, std::error_code& ec) noexcept
