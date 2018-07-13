@@ -49,9 +49,6 @@
 
 namespace ice {
 
-constexpr inline std::size_t native_event_size = @native_event_size@;
-constexpr inline std::size_t native_event_alignment = @native_event_alignment@;
-
 constexpr inline std::size_t sockaddr_storage_size = @sockaddr_storage_size@;
 constexpr inline std::size_t sockaddr_storage_alignment = @sockaddr_storage_alignment@;
 

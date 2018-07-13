@@ -3,71 +3,10 @@
 #include <ice/scheduler.hpp>
 #include <ice/utility.hpp>
 #include <system_error>
-#include <type_traits>
-
-#if ICE_OS_WIN32
-typedef struct _OVERLAPPED OVERLAPPED;
-#endif
 
 namespace ice {
 
-struct native_event_storage {
-  std::aligned_storage_t<native_event_size, native_event_alignment> storage;
-};
-
-class native_event
-#if ICE_OS_WIN32
-  : public native_event_storage
-#endif
-{
-  friend class service;
-public:
-#if ICE_OS_WIN32
-  native_event() noexcept;
-#else
-  native_event() noexcept = default;
-#endif
-
-  // clang-format off
-#ifdef __INTELLISENSE__
-  native_event(native_event&& other) {}
-  native_event(const native_event& other) {}
-  native_event& operator=(native_event&& other) { return *this; }
-  native_event& operator=(const native_event& other) { return *this; }
-#else
-  native_event(native_event&& other) = delete;
-  native_event(const native_event& other) = delete;
-  native_event& operator=(native_event&& other) = delete;
-  native_event& operator=(const native_event& other) = delete;
-#endif
-  // clang-format on
-
-#if ICE_OS_WIN32
-  virtual ~native_event();
-#else
-  virtual ~native_event() = default;
-#endif
-
-  virtual void resume() noexcept = 0;
-
-#if ICE_OS_WIN32
-  OVERLAPPED* get() noexcept
-  {
-    return reinterpret_cast<OVERLAPPED*>(static_cast<native_event_storage*>(this));
-  }
-#endif
-
-protected:
-  std::error_code ec_;
-  std::experimental::coroutine_handle<> awaiter_;
-
-private:
-#if ICE_OS_LINUX
-  int native_handle_ = -1;
-#endif
-};
-
-class service final : private scheduler {
+class service final : public scheduler<service> {
 public:
 #if ICE_OS_WIN32
   struct close_type {
@@ -80,57 +19,51 @@ public:
   };
   using handle_type = ice::handle<int, -1, close_type>;
 #endif
-  using handle_view = handle_type::view;
 
-  service(std::size_t concurrency_hint = 1);
-
-  void run();
-  void run(std::error_code& ec) noexcept;
-
-  void run(std::size_t event_buffer_size);
-  void run(std::size_t event_buffer_size, std::error_code& ec) noexcept;
+  std::error_code create() noexcept;
+  std::error_code run(std::size_t event_buffer_size = 128) noexcept;
 
   bool is_current() const noexcept
   {
     return index_.get() ? true : false;
   }
 
-  void stop() noexcept
+  std::error_code stop() noexcept
   {
     stop_.store(true, std::memory_order_release);
-    interrupt();
+    return interrupt();
   }
 
-  void post(event* ev) noexcept
+  std::error_code post(ice::schedule<service>* schedule) noexcept
   {
-    scheduler::post(ev);
-    interrupt();
+    scheduler::post(schedule);
+    return interrupt();
   }
 
-  ice::schedule<service> schedule(bool post = false) noexcept
+  constexpr handle_type& handle() noexcept
   {
-    return { *this, post };
+    return handle_;
   }
 
-  handle_view handle() const noexcept
+  constexpr const handle_type& handle() const noexcept
   {
     return handle_;
   }
 
 #if ICE_OS_LINUX
-  handle_view events() const noexcept
+  constexpr handle_type& events() noexcept
+  {
+    return events_;
+  }
+
+  constexpr const handle_type& events() const noexcept
   {
     return events_;
   }
 #endif
 
-#if ICE_OS_LINUX || ICE_OS_FREEBSD
-  bool queue_recv(int handle, native_event* ev) noexcept;
-  bool queue_send(int handle, native_event* ev) noexcept;
-#endif
-
 private:
-  void interrupt() noexcept;
+  std::error_code interrupt() noexcept;
 
   std::atomic_bool stop_ = false;
   ice::thread_local_storage index_;

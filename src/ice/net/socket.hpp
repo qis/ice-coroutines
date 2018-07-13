@@ -30,11 +30,8 @@ public:
   };
   using handle_type = ice::handle<int, -1, close_type>;
 #endif
-  using handle_view = handle_type::view;
 
   explicit socket(ice::service& service) noexcept : service_(service) {}
-
-  socket(ice::service& service, int family, int type, int protocol = 0);
 
   socket(socket&& other) noexcept = default;
   socket& operator=(socket&& other) noexcept = default;
@@ -49,20 +46,9 @@ public:
     return handle_.valid();
   }
 
-  void create(int family, int type);
-  void create(int family, int type, std::error_code& ec) noexcept;
-
-  void create(int family, int type, int protocol);
-  void create(int family, int type, int protocol, std::error_code& ec) noexcept;
-
-  void bind(const net::endpoint& endpoint);
-  void bind(const net::endpoint& endpoint, std::error_code& ec) noexcept;
-
-  void shutdown();
-  void shutdown(std::error_code& ec) noexcept;
-
-  void shutdown(net::shutdown direction);
-  void shutdown(net::shutdown direction, std::error_code& ec) noexcept;
+  std::error_code create(int family, int type, int protocol = 0) noexcept;
+  std::error_code bind(const endpoint& endpoint) noexcept;
+  std::error_code shutdown(net::shutdown direction = net::shutdown::both) noexcept;
 
   void close() noexcept
   {
@@ -76,39 +62,20 @@ public:
 
   int type() const noexcept;
   int protocol() const noexcept;
+  net::endpoint name() const noexcept;
 
-  template <typename T>
-  std::enable_if_t<std::is_base_of_v<net::option, T>, T> get() const
+  std::error_code get(net::option& option) const noexcept
   {
-    std::error_code ec;
-    const auto value = get<T>(ec);
-    throw_on_error(ec, "get socket option");
-    return value;
+    return get(option.level(), option.name(), option.data(), option.size());
   }
 
-  template <typename T>
-  std::enable_if_t<std::is_base_of_v<net::option, T>, T> get(std::error_code& ec) const noexcept
+  std::error_code set(const net::option& option) noexcept
   {
-    T option;
-    option.size() = option.capacity();
-    get(option.level(), option.name(), option.data(), option.size(), ec);
-    return option;
+    return set(option.level(), option.name(), option.data(), option.size());
   }
 
-  void set(const net::option& option)
-  {
-    std::error_code ec;
-    set(option.level(), option.name(), option.data(), option.size(), ec);
-    throw_on_error(ec, "set socket option");
-  }
-
-  void set(const net::option& option, std::error_code& ec) noexcept
-  {
-    set(option.level(), option.name(), option.data(), option.size(), ec);
-  }
-
-  void get(int level, int name, void* data, socklen_t& size, std::error_code& ec) const noexcept;
-  void set(int level, int name, const void* data, socklen_t size, std::error_code& ec) noexcept;
+  std::error_code get(int level, int name, void* data, socklen_t& size) const noexcept;
+  std::error_code set(int level, int name, const void* data, socklen_t size) noexcept;
 
   ice::service& service() const noexcept
   {
@@ -125,30 +92,8 @@ public:
     return handle_;
   }
 
-  constexpr net::endpoint& remote_endpoint() noexcept
-  {
-    return remote_endpoint_;
-  }
-
-  constexpr const net::endpoint& remote_endpoint() const noexcept
-  {
-    return remote_endpoint_;
-  }
-
-  constexpr net::endpoint& local_endpoint() noexcept
-  {
-    return local_endpoint_;
-  }
-
-  constexpr const net::endpoint& local_endpoint() const noexcept
-  {
-    return local_endpoint_;
-  }
-
 protected:
   std::reference_wrapper<ice::service> service_;
-  net::endpoint remote_endpoint_;
-  net::endpoint local_endpoint_;
   handle_type handle_;
 
 private:

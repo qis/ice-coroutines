@@ -10,37 +10,6 @@ std::atomic<std::size_t> g_limit = std::numeric_limits<std::size_t>::max();
 std::atomic<std::size_t> g_count = 0;
 std::shared_ptr<sink> g_sink;
 
-class post final : public event {
-public:
-  post(context& context, entry entry) noexcept : context_(context), entry_(entry) {}
-
-  constexpr bool await_ready() const noexcept
-  {
-    return false;
-  }
-
-  void await_suspend(std::experimental::coroutine_handle<> awaiter) noexcept
-  {
-    g_count.fetch_add(1, std::memory_order_release);
-    event::awaiter_ = awaiter;
-    context_.post(this);
-  }
-
-  void await_resume() const
-  {
-    g_count.fetch_sub(1, std::memory_order_release);
-    if (auto sink = std::atomic_load_explicit(&g_sink, std::memory_order_acquire)) {
-      sink->print(entry_);
-    } else {
-      print(entry_);
-    }
-  }
-
-private:
-  context& context_;
-  entry entry_;
-};
-
 class logger {
 public:
   logger()
@@ -58,10 +27,16 @@ public:
 
   task queue(log::entry entry) noexcept
   {
+    g_count.fetch_add(1, std::memory_order_release);
 #if ICE_EXCEPTIONS
     try {
 #endif
-      co_await post{ context_, std::move(entry) };
+      co_await context_.schedule(true);
+      if (auto sink = std::atomic_load_explicit(&g_sink, std::memory_order_acquire)) {
+        sink->print(entry);
+      } else {
+        print(entry);
+      }
 #if ICE_EXCEPTIONS
     }
     catch (const std::exception& e) {
@@ -71,6 +46,7 @@ public:
       std::fputs("critical logger error\n", stderr);
     }
 #endif
+    g_count.fetch_sub(1, std::memory_order_release);
   }
 
   task queue(const log::entry& entry, std::atomic_bool& completed, std::condition_variable& cv) noexcept
@@ -78,7 +54,12 @@ public:
 #if ICE_EXCEPTIONS
     try {
 #endif
-      co_await post{ context_, std::move(entry) };
+      co_await context_.schedule(true);
+      if (auto sink = std::atomic_load_explicit(&g_sink, std::memory_order_acquire)) {
+        sink->print(entry);
+      } else {
+        print(entry);
+      }
 #if ICE_EXCEPTIONS
     }
     catch (const std::exception& e) {
@@ -162,8 +143,8 @@ void queue(time_point tp, level level, format format, std::string message) noexc
     std::atomic_bool completed = false;
     std::condition_variable cv;
     std::mutex mutex;
-    g_logger.queue({ tm, std::chrono::milliseconds{ ms }, level, format, std::move(message) }, completed, cv);
     std::unique_lock lock{ mutex };
+    g_logger.queue({ tm, std::chrono::milliseconds{ ms }, level, format, std::move(message) }, completed, cv);
     cv.wait(lock, [&]() { return completed.load(std::memory_order_acquire); });
   }
 }
@@ -181,6 +162,8 @@ void print(const log::entry& entry)
     std::fputs("] ", stream);
     if (entry.format) {
       manager.set(entry.format);
+    } else if (entry.level == level::debug) {
+      manager.set(level_format);
     }
     std::fputs(entry.message.data(), stream);
     manager.reset();

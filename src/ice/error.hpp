@@ -1,11 +1,7 @@
 #pragma once
 #include <ice/config.hpp>
-#include <ice/terminal.hpp>
-#include <fmt/format.h>
-#include <stdexcept>
 #include <system_error>
 #include <type_traits>
-#include <cstdlib>
 
 namespace ice {
 
@@ -40,6 +36,12 @@ inline std::error_code make_error_code(T ev, const std::error_category& category
 }
 
 // clang-format off
+
+#if 0
+#include <ice/terminal.hpp>
+#include <fmt/format.h>
+#include <stdexcept>
+#include <cstdlib>
 
 class runtime_error : public std::runtime_error {
 public:
@@ -102,7 +104,7 @@ public:
 template <typename T>
 inline void throw_exception(T e) noexcept(ICE_NO_EXCEPTIONS)
 {
-#if ICE_NO_EXCEPTIONS
+#  if ICE_NO_EXCEPTIONS
   terminal::manager manager{ stderr, color::red | style::bold };
   if constexpr (std::is_base_of_v<std::system_error, T>) {
     const auto ec = e.code();
@@ -112,9 +114,9 @@ inline void throw_exception(T e) noexcept(ICE_NO_EXCEPTIONS)
   }
   manager.reset();
   std::abort();
-#else
+#  else
   throw e;
-#endif
+#  endif
 }
 
 template <typename T>
@@ -200,5 +202,6 @@ inline void throw_on_error(T ev, const std::error_category& category, const char
     throw_error(ec, what);
   }
 }
+#endif
 
 }  // namespace ice

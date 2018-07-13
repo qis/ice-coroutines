@@ -8,6 +8,7 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <cstdint>
 
 #if ICE_EXCEPTIONS
@@ -64,7 +65,7 @@ inline void queue(time_point tp, level level, ice::format format, std::string_vi
   queue(tp, level, format, fmt::format(message, std::forward<Arg>(arg), std::forward<Args>(args)...));
 }
 
-inline void queue(clock::time_point tp, level level, std::string message) noexcept
+inline void queue(time_point tp, level level, std::string message) noexcept
 {
   queue(tp, level, ice::format{}, std::move(message));
 }
@@ -72,55 +73,92 @@ inline void queue(clock::time_point tp, level level, std::string message) noexce
 template <typename Arg, typename... Args>
 inline void queue(time_point tp, level level, std::string_view message, Arg&& arg, Args&&... args)
 {
-  queue(tp, level, fmt::format(message, std::forward<Arg>(arg), std::forward<Args>(args)...));
+  queue(tp, level, ice::format{}, fmt::format(message, std::forward<Arg>(arg), std::forward<Args>(args)...));
+}
+
+template <typename Arg, typename... Args>
+inline int queue(
+  time_point tp,
+  level level,
+  std::error_code ec,
+  ice::format format,
+  std::string_view message,
+  Arg&& arg,
+  Args&&... args)
+{
+  queue(
+    tp, level, format,
+    fmt::format(
+      "{} error {}: {} ({})", ec.category().name(), ec.value(),
+      fmt::format(message, std::forward<Arg>(arg), std::forward<Args>(args)...), ec.message()));
+  return ec.value();
+}
+
+inline int queue(time_point tp, level level, std::error_code ec, std::string message) noexcept
+{
+  queue(
+    tp, level, ice::format{},
+    fmt::format("{} error {}: {} ({})", ec.category().name(), ec.value(), message, ec.message()));
+  return ec.value();
+}
+
+template <typename Arg, typename... Args>
+inline int queue(time_point tp, level level, std::error_code ec, std::string_view message, Arg&& arg, Args&&... args)
+{
+  queue(
+    tp, level, ice::format{},
+    fmt::format(
+      "{} error {}: {} ({})", ec.category().name(), ec.value(),
+      fmt::format(message, std::forward<Arg>(arg), std::forward<Args>(args)...), ec.message()));
+  return ec.value();
 }
 
 template <typename... Args>
-inline void emergency(Args&&... args)
+inline auto emergency(Args&&... args)
 {
-  queue(clock::now(), level::emergency, std::forward<Args>(args)...);
+  return queue(clock::now(), level::emergency, std::forward<Args>(args)...);
 }
 
 template <typename... Args>
-inline void alert(Args&&... args)
+inline auto alert(Args&&... args)
 {
-  queue(clock::now(), level::alert, std::forward<Args>(args)...);
+  return queue(clock::now(), level::alert, std::forward<Args>(args)...);
 }
 
 template <typename... Args>
-inline void critical(Args&&... args)
+inline auto critical(Args&&... args)
 {
-  queue(clock::now(), level::critical, std::forward<Args>(args)...);
+  return queue(clock::now(), level::critical, std::forward<Args>(args)...);
 }
 
 template <typename... Args>
-inline void error(Args&&... args)
+inline auto error(Args&&... args)
 {
-  queue(clock::now(), level::error, std::forward<Args>(args)...);
+  return queue(clock::now(), level::error, std::forward<Args>(args)...);
 }
 
 template <typename... Args>
-inline void warning(Args&&... args)
+inline auto warning(Args&&... args)
 {
-  queue(clock::now(), level::warning, std::forward<Args>(args)...);
+  return queue(clock::now(), level::warning, std::forward<Args>(args)...);
 }
 
 template <typename... Args>
-inline void notice(Args&&... args)
+inline auto notice(Args&&... args)
 {
-  queue(clock::now(), level::notice, std::forward<Args>(args)...);
+  return queue(clock::now(), level::notice, std::forward<Args>(args)...);
 }
 
 template <typename... Args>
-inline void info(Args&&... args)
+inline auto info(Args&&... args)
 {
-  queue(clock::now(), level::info, std::forward<Args>(args)...);
+  return queue(clock::now(), level::info, std::forward<Args>(args)...);
 }
 
 template <typename... Args>
-inline void debug(Args&&... args)
+inline auto debug(Args&&... args)
 {
-  queue(clock::now(), level::debug, std::forward<Args>(args)...);
+  return queue(clock::now(), level::debug, std::forward<Args>(args)...);
 }
 
 void print(const entry& entry);

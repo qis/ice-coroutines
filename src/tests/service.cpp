@@ -8,8 +8,8 @@ TEST(service, schedule)
 {
   static ice::service c0;
   static ice::service c1;
-  c0.create();
-  c1.create();
+  EXPECT_FALSE(c0.create());
+  EXPECT_FALSE(c1.create());
 
   auto t0 = std::thread([&]() { c0.run(); });
   auto t1 = std::thread([&]() { c1.run(); });

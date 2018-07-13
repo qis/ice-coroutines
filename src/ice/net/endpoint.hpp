@@ -13,15 +13,13 @@ public:
   using storage_type = std::aligned_storage_t<sockaddr_storage_size, sockaddr_storage_alignment>;
 
   endpoint() noexcept;
-  endpoint(const std::string& host, std::uint16_t port);
 
   endpoint(const endpoint& other) noexcept;
   endpoint& operator=(const endpoint& other) noexcept;
 
   ~endpoint();
 
-  void create(const std::string& host, std::uint16_t port);
-  void create(const std::string& host, std::uint16_t port, std::error_code& ec) noexcept;
+  std::error_code create(const std::string& host, std::uint16_t port) noexcept;
 
   std::string host() const;
   std::uint16_t port() const noexcept;
@@ -84,3 +82,24 @@ private:
 };
 
 }  // namespace ice::net
+
+#include <fmt/format.h>
+
+namespace fmt {
+
+template <>
+struct formatter<ice::net::endpoint> {
+  template <typename ParseContext>
+  constexpr auto parse(ParseContext& ctx)
+  {
+    return ctx.begin();
+  }
+
+  template <typename FormatContext>
+  auto format(const ice::net::endpoint& ep, FormatContext& ctx)
+  {
+    return format_to(ctx.begin(), "{}:{}", ep.host(), ep.port());
+  }
+};
+
+}  // namespace fmt

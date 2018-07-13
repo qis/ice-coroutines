@@ -20,11 +20,6 @@ endpoint::endpoint() noexcept
   new (&storage_) sockaddr_storage;
 }
 
-endpoint::endpoint(const std::string& host, std::uint16_t port) : endpoint()
-{
-  create(host, port);
-}
-
 endpoint::endpoint(const endpoint& other) noexcept : size_(other.size_)
 {
   new (static_cast<void*>(&storage_)) sockaddr_storage{ reinterpret_cast<const sockaddr_storage&>(other.storage_) };
@@ -42,14 +37,7 @@ endpoint::~endpoint()
   reinterpret_cast<sockaddr_storage&>(storage_).~sockaddr_storage();
 }
 
-void endpoint::create(const std::string& host, std::uint16_t port)
-{
-  std::error_code ec;
-  create(host, port, ec);
-  throw_on_error(ec, "create endpoint");
-}
-
-void endpoint::create(const std::string& host, std::uint16_t port, std::error_code& ec) noexcept
+std::error_code endpoint::create(const std::string& host, std::uint16_t port) noexcept
 {
   int error = 0;
   if (host.find(":", 0, 5) == std::string::npos) {
@@ -68,12 +56,13 @@ void endpoint::create(const std::string& host, std::uint16_t port, std::error_co
   switch (error) {
   case 1: break;
 #if ICE_OS_WIN32
-  case -1: ec = make_error_code(::WSAGetLastError()); break;
+  case -1: return make_error_code(::WSAGetLastError());
 #else
-  case -1: ec = make_error_code(errno); break;
+  case -1: return make_error_code(errno);
 #endif
-  default: ec = make_error_code(errc::invalid_address); break;
+  default: return make_error_code(errc::invalid_address);
   }
+  return {};
 }
 
 std::string endpoint::host() const

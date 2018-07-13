@@ -77,34 +77,26 @@ const void* thread_local_storage::get() const noexcept
 #endif
 }
 
-void set_thread_affinity(std::size_t index)
-{
-  std::error_code ec;
-  set_thread_affinity(index, ec);
-  throw_on_error(ec, "set thread affinity");
-}
-
-void set_thread_affinity(std::size_t index, std::error_code& ec) noexcept
+std::error_code set_thread_affinity(std::size_t index) noexcept
 {
   assert(index < std::thread::hardware_concurrency());
-#if ICE_NO_DEBUG
-#  if ICE_OS_WIN32
+#if ICE_OS_WIN32
   if (!::SetThreadAffinityMask(::GetCurrentThread(), DWORD_PTR(1) << index)) {
-    ec = make_error_code(::GetLastError());
+    return make_error_code(::GetLastError());
   }
-#  else
-#    if ICE_OS_LINUX
+#else
+#  if ICE_OS_LINUX
   cpu_set_t cpuset;
-#    elif ICE_OS_FREEBSD
+#  elif ICE_OS_FREEBSD
   cpuset_t cpuset;
-#    endif
+#  endif
   CPU_ZERO(&cpuset);
   CPU_SET(static_cast<int>(index), &cpuset);
   if (const auto rc = ::pthread_setaffinity_np(::pthread_self(), sizeof(cpuset), &cpuset)) {
-    ec = make_error_code(rc);
+    return make_error_code(rc);
   }
-#  endif
 #endif
+  return {};
 }
 
 }  // namespace ice

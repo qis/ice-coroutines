@@ -2,6 +2,8 @@
 #include <ice/config.hpp>
 #include <ice/handle.hpp>
 #include <system_error>
+#include <utility>
+#include <cstdint>
 
 #ifndef ICE_LIKELY
 #  ifdef __has_builtin
@@ -43,6 +45,36 @@
 
 namespace ice {
 
+template <typename Handler>
+class scope_exit {
+public:
+  explicit scope_exit(Handler handler) noexcept : handler_(std::move(handler)) {}
+
+  scope_exit(scope_exit&& other) noexcept :
+    handler_(std::move(other.handler_)), invoke_(std::exchange(other.invoke_, false))
+  {}
+
+  scope_exit(const scope_exit& other) = delete;
+  scope_exit& operator=(const scope_exit& other) = delete;
+
+  ~scope_exit() noexcept(ICE_NO_EXCEPTIONS || noexcept(handler_()))
+  {
+    if (invoke_) {
+      handler_();
+    }
+  }
+
+private:
+  Handler handler_;
+  bool invoke_ = true;
+};
+
+template <typename Handler>
+inline auto on_scope_exit(Handler&& handler) noexcept
+{
+  return scope_exit<Handler>{ std::forward<Handler>(handler) };
+}
+
 class thread_local_storage {
 public:
   struct close_type {
@@ -82,37 +114,6 @@ private:
   handle_type handle_;
 };
 
-void set_thread_affinity(std::size_t index);
-void set_thread_affinity(std::size_t index, std::error_code& ec) noexcept;
-
-template <typename Handler>
-class scope_exit {
-public:
-  explicit scope_exit(Handler handler) noexcept : handler_(std::move(handler)) {}
-
-  scope_exit(scope_exit&& other) noexcept :
-    handler_(std::move(other.handler_)), invoke_(std::exchange(other.invoke_, false))
-  {}
-
-  scope_exit(const scope_exit& other) = delete;
-  scope_exit& operator=(const scope_exit& other) = delete;
-
-  ~scope_exit() noexcept(ICE_NO_EXCEPTIONS || noexcept(handler_()))
-  {
-    if (invoke_) {
-      handler_();
-    }
-  }
-
-private:
-  Handler handler_;
-  bool invoke_ = true;
-};
-
-template <typename Handler>
-auto on_scope_exit(Handler&& handler) noexcept
-{
-  return scope_exit<Handler>{ std::forward<Handler>(handler) };
-}
+std::error_code set_thread_affinity(std::size_t index) noexcept;
 
 }  // namespace ice

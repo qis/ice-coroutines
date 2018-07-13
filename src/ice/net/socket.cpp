@@ -9,6 +9,8 @@
 #  include <unistd.h>
 #endif
 
+#include <ice/log.hpp>
+
 namespace ice::net {
 
 #if ICE_OS_WIN32
@@ -30,97 +32,46 @@ void socket::close_type::operator()(int handle) noexcept
 
 #endif
 
-socket::socket(ice::service& service, int family, int type, int protocol) : service_(service)
-{
-  create(family, type, protocol);
-}
-
-void socket::create(int family, int type)
-{
-  create(family, type, 0);
-}
-
-void socket::create(int family, int type, std::error_code& ec) noexcept
-{
-  create(family, type, 0, ec);
-}
-
-void socket::create(int family, int type, int protocol)
-{
-  std::error_code ec;
-  create(family, type, protocol, ec);
-  throw_on_error(ec, "create socket");
-}
-
-void socket::create(int family, int type, int protocol, std::error_code& ec) noexcept
+std::error_code socket::create(int family, int type, int protocol) noexcept
 {
 #if ICE_OS_WIN32
   handle_type handle{ ::WSASocketW(family, type, protocol, nullptr, 0, WSA_FLAG_OVERLAPPED) };
   if (!handle) {
-    ec = make_error_code(::WSAGetLastError());
-    return;
+    return make_error_code(::WSAGetLastError());
   }
   if (!::CreateIoCompletionPort(handle.as<HANDLE>(), service().handle().as<HANDLE>(), 0, 0)) {
-    ec = make_error_code(::GetLastError());
-    return;
+    return make_error_code(::GetLastError());
   }
   if (!::SetFileCompletionNotificationModes(handle.as<HANDLE>(), FILE_SKIP_COMPLETION_PORT_ON_SUCCESS)) {
-    ec = make_error_code(::GetLastError());
-    return;
+    return make_error_code(::GetLastError());
   }
 #else
   handle_type handle{ ::socket(family, type | SOCK_NONBLOCK, protocol) };
   if (!handle) {
-    ec = make_error_code(errno);
-    return;
+    return make_error_code(errno);
   }
 #endif
   handle_ = std::move(handle);
+  return {};
 }
 
-void socket::bind(const net::endpoint& endpoint)
-{
-  std::error_code ec;
-  bind(endpoint, ec);
-  throw_on_error(ec, "bind socket");
-}
-
-void socket::bind(const net::endpoint& endpoint, std::error_code& ec) noexcept
+std::error_code socket::bind(const endpoint& endpoint) noexcept
 {
 #if ICE_OS_WIN32
   if (::bind(handle_, &endpoint.sockaddr(), endpoint.size()) == SOCKET_ERROR) {
-    ec = make_error_code(::WSAGetLastError());
-    return;
+    return make_error_code(::WSAGetLastError());
   }
 #else
   while (::bind(handle_, &endpoint.sockaddr(), endpoint.size()) < 0) {
     if (errno != EINTR) {
-      ec = make_error_code(errno);
-      return;
+      return make_error_code(errno);
     }
   }
 #endif
-  local_endpoint_ = endpoint;
+  return {};
 }
 
-void socket::shutdown()
-{
-  shutdown(net::shutdown::both);
-}
-
-void socket::shutdown(std::error_code& ec) noexcept
-{
-  shutdown(net::shutdown::both, ec);
-}
-
-void socket::shutdown(net::shutdown direction)
-{
-  std::error_code ec;
-  shutdown(direction, ec);
-  throw_error(ec, "shutdown socket");
-}
-
-void socket::shutdown(net::shutdown direction, std::error_code& ec) noexcept
+std::error_code socket::shutdown(net::shutdown direction) noexcept
 {
 #if ICE_OS_WIN32
   auto value = 0;
@@ -130,8 +81,7 @@ void socket::shutdown(net::shutdown direction, std::error_code& ec) noexcept
   case net::shutdown::both: value = SD_BOTH; break;
   }
   if (::shutdown(handle_, value) == SOCKET_ERROR) {
-    ec = make_error_code(::WSAGetLastError());
-    return;
+    return make_error_code(::WSAGetLastError());
   }
 #else
   auto value = 0;
@@ -141,10 +91,10 @@ void socket::shutdown(net::shutdown direction, std::error_code& ec) noexcept
   case net::shutdown::both: value = SHUT_RDWR; break;
   }
   if (::shutdown(handle_, value) < 0) {
-    ec = make_error_code(errno);
-    return;
+    return make_error_code(errno);
   }
 #endif
+  return {};
 }
 
 int socket::type() const noexcept
@@ -152,8 +102,7 @@ int socket::type() const noexcept
   auto data = 0;
   auto size = socklen_t(sizeof(data));
   std::error_code ec;
-  get(SOL_SOCKET, SO_TYPE, &data, size, ec);
-  if (ec) {
+  if (get(SOL_SOCKET, SO_TYPE, &data, size)) {
     return 0;
   }
   return data;
@@ -165,8 +114,7 @@ int socket::protocol() const noexcept
   WSAPROTOCOL_INFOW data = {};
   auto size = socklen_t(sizeof(data));
   std::error_code ec;
-  get(SOL_SOCKET, SO_PROTOCOL_INFOW, &data, size, ec);
-  if (ec) {
+  if (get(SOL_SOCKET, SO_PROTOCOL_INFOW, &data, size)) {
     return 0;
   }
   return data.iProtocol;
@@ -174,42 +122,49 @@ int socket::protocol() const noexcept
   auto data = 0;
   auto size = socklen_t(sizeof(data));
   std::error_code ec;
-  get(SOL_SOCKET, SO_PROTOCOL, &data, size, ec);
-  if (ec) {
+  if (get(SOL_SOCKET, SO_PROTOCOL, &data, size)) {
     return 0;
   }
   return data;
 #endif
 }
 
-void socket::get(int level, int name, void* data, socklen_t& size, std::error_code& ec) const noexcept
+endpoint socket::name() const noexcept
+{
+  endpoint endpoint;
+  endpoint.size() = endpoint.capacity();
+  if (::getsockname(handle(), &endpoint.sockaddr(), &endpoint.size()) != 0) {
+    return {};
+  }
+  return endpoint;
+}
+
+std::error_code socket::get(int level, int name, void* data, socklen_t& size) const noexcept
 {
 #if ICE_OS_WIN32
   if (::getsockopt(handle_, level, name, reinterpret_cast<char*>(data), &size) == SOCKET_ERROR) {
-    ec = make_error_code(::WSAGetLastError());
-    return;
+    return make_error_code(::WSAGetLastError());
   }
 #else
   if (::getsockopt(handle_, level, name, data, &size) < 0) {
-    ec = make_error_code(errno);
-    return;
+    return make_error_code(errno);
   }
 #endif
+  return {};
 }
 
-void socket::set(int level, int name, const void* data, socklen_t size, std::error_code& ec) noexcept
+std::error_code socket::set(int level, int name, const void* data, socklen_t size) noexcept
 {
 #if ICE_OS_WIN32
   if (::setsockopt(handle_, level, name, reinterpret_cast<const char*>(data), size) == SOCKET_ERROR) {
-    ec = make_error_code(::WSAGetLastError());
-    return;
+    return make_error_code(::WSAGetLastError());
   }
 #else
   if (::setsockopt(handle_, level, name, data, size) < 0) {
-    ec = make_error_code(errno);
-    return;
+    return make_error_code(errno);
   }
 #endif
+  return {};
 }
 
 }  // namespace ice::net

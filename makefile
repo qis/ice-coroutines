@@ -29,6 +29,10 @@ debug: build/llvm/debug/CMakeCache.txt
 	@cmake --build build/llvm/debug --target application
 	@$(SYSDBG) build/llvm/debug/src/application/ice
 
+release: build/llvm/release/CMakeCache.txt
+	@cmake --build build/llvm/release --target application
+	@build/llvm/release/src/application/ice
+
 test: build/llvm/debug/CMakeCache.txt
 	@cmake --build build/llvm/debug --target tests
 	@cd build/llvm/debug && ctest
