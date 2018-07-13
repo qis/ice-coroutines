@@ -56,3 +56,12 @@ constexpr inline std::size_t linger_size = @linger_size@;
 constexpr inline std::size_t linger_alignment = @linger_alignment@;
 
 }  // namespace ice
+
+namespace fmt {
+inline namespace v5 {
+
+template <typename T, typename Char, typename Enable>
+struct formatter;
+
+}  // namespace v5
+}  // namespace fmt

@@ -12,12 +12,10 @@ class endpoint {
 public:
   using storage_type = std::aligned_storage_t<sockaddr_storage_size, sockaddr_storage_alignment>;
 
-  endpoint() noexcept;
+  endpoint() noexcept = default;
 
   endpoint(const endpoint& other) noexcept;
   endpoint& operator=(const endpoint& other) noexcept;
-
-  ~endpoint();
 
   std::error_code create(const std::string& host, std::uint16_t port) noexcept;
 
@@ -83,12 +81,10 @@ private:
 
 }  // namespace ice::net
 
-#include <fmt/format.h>
-
 namespace fmt {
 
 template <>
-struct formatter<ice::net::endpoint> {
+struct formatter<ice::net::endpoint, char, void> {
   template <typename ParseContext>
   constexpr auto parse(ParseContext& ctx)
   {

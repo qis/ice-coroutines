@@ -15,14 +15,37 @@
 
 namespace ice::net {
 
-endpoint::endpoint() noexcept
-{
-  new (&storage_) sockaddr_storage;
-}
+//
+// Using placement-new and manually calling the destructor is the correct thing to do
+// and avoids undefined behavior. However, it is completely useless on any supported
+// platform and compiler since undefined behavior works in practice and is faster.
+//
+// endpoint::endpoint() noexcept
+// {
+//   new (&storage_) sockaddr_storage;
+// }
+//
+// endpoint::endpoint(const endpoint& other) noexcept : size_(other.size_)
+// {
+//   new (static_cast<void*>(&storage_)) sockaddr_storage{ reinterpret_cast<const sockaddr_storage&>(other.storage_) };
+// }
+//
+// endpoint& endpoint::operator=(const endpoint& other) noexcept
+// {
+//   reinterpret_cast<sockaddr_storage&>(storage_) = reinterpret_cast<const sockaddr_storage&>(other.storage_);
+//   size_ = other.size_;
+//   return *this;
+// }
+//
+// endpoint::~endpoint()
+// {
+//   reinterpret_cast<sockaddr_storage&>(storage_).~sockaddr_storage();
+// }
+//
 
 endpoint::endpoint(const endpoint& other) noexcept : size_(other.size_)
 {
-  new (static_cast<void*>(&storage_)) sockaddr_storage{ reinterpret_cast<const sockaddr_storage&>(other.storage_) };
+  reinterpret_cast<sockaddr_storage&>(storage_) = reinterpret_cast<const sockaddr_storage&>(other.storage_);
 }
 
 endpoint& endpoint::operator=(const endpoint& other) noexcept
@@ -30,11 +53,6 @@ endpoint& endpoint::operator=(const endpoint& other) noexcept
   reinterpret_cast<sockaddr_storage&>(storage_) = reinterpret_cast<const sockaddr_storage&>(other.storage_);
   size_ = other.size_;
   return *this;
-}
-
-endpoint::~endpoint()
-{
-  reinterpret_cast<sockaddr_storage&>(storage_).~sockaddr_storage();
 }
 
 std::error_code endpoint::create(const std::string& host, std::uint16_t port) noexcept
@@ -53,14 +71,16 @@ std::error_code endpoint::create(const std::string& host, std::uint16_t port) no
     size_ = sizeof(::sockaddr_in6);
     error = ::inet_pton(AF_INET6, host.data(), &addr.sin6_addr);
   }
-  switch (error) {
-  case 1: break;
+  if (error != 1) {
+    size_ = 0;
+    switch (error) {
 #if ICE_OS_WIN32
-  case -1: return make_error_code(::WSAGetLastError());
+    case -1: return make_error_code(::WSAGetLastError());
 #else
-  case -1: return make_error_code(errno);
+    case -1: return make_error_code(errno);
 #endif
-  default: return make_error_code(errc::invalid_address);
+    default: return make_error_code(errc::invalid_address);
+    }
   }
   return {};
 }

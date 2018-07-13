@@ -76,28 +76,20 @@ inline void queue(time_point tp, level level, std::string_view message, Arg&& ar
   queue(tp, level, ice::format{}, fmt::format(message, std::forward<Arg>(arg), std::forward<Args>(args)...));
 }
 
+// clang-format off
+
 template <typename Arg, typename... Args>
-inline int queue(
-  time_point tp,
-  level level,
-  std::error_code ec,
-  ice::format format,
-  std::string_view message,
-  Arg&& arg,
-  Args&&... args)
+inline int queue(time_point tp, level level, std::error_code ec, ice::format format, std::string_view message, Arg&& arg, Args&&... args)
 {
-  queue(
-    tp, level, format,
-    fmt::format(
-      "{} error {}: {} ({})", ec.category().name(), ec.value(),
+  queue(tp, level, format,
+    fmt::format("{} error {}: {} ({})", ec.category().name(), ec.value(),
       fmt::format(message, std::forward<Arg>(arg), std::forward<Args>(args)...), ec.message()));
   return ec.value();
 }
 
 inline int queue(time_point tp, level level, std::error_code ec, std::string message) noexcept
 {
-  queue(
-    tp, level, ice::format{},
+  queue(tp, level, ice::format{},
     fmt::format("{} error {}: {} ({})", ec.category().name(), ec.value(), message, ec.message()));
   return ec.value();
 }
@@ -105,13 +97,13 @@ inline int queue(time_point tp, level level, std::error_code ec, std::string mes
 template <typename Arg, typename... Args>
 inline int queue(time_point tp, level level, std::error_code ec, std::string_view message, Arg&& arg, Args&&... args)
 {
-  queue(
-    tp, level, ice::format{},
-    fmt::format(
-      "{} error {}: {} ({})", ec.category().name(), ec.value(),
+  queue(tp, level, ice::format{},
+    fmt::format("{} error {}: {} ({})", ec.category().name(), ec.value(),
       fmt::format(message, std::forward<Arg>(arg), std::forward<Args>(args)...), ec.message()));
   return ec.value();
 }
+
+// clang-format on
 
 template <typename... Args>
 inline auto emergency(Args&&... args)
