@@ -11,6 +11,9 @@ target_link_libraries(application PUBLIC ice::ssh)
 set_target_properties(application PROPERTIES OUTPUT_NAME ice)
 set_target_properties(application PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 
+add_custom_command(TARGET application POST_BUILD COMMAND
+  ${CMAKE_COMMAND} -E copy $<TARGET_FILE:ssh> $<TARGET_FILE_DIR:application>)
+
 if(WIN32)
   configure_file(main.rc.in ${CMAKE_CURRENT_BINARY_DIR}/main.rc)
   source_group("res" FILES ${CMAKE_CURRENT_BINARY_DIR}/main.rc main.manifest)
