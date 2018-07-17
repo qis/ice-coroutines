@@ -1,4 +1,12 @@
 Source: ice
 Version: 0.1.0
-Description: C++20 Coroutines TS framework.
-Build-Depends: fmt, openssl, zlib
+Description: C++20 Coroutines TS framework
+Build-Depends: fmt, zlib
+
+Feature: net
+Description: Build networking support
+Build-Depends: openssl
+
+Feature: ssh
+Description: Build secure shell support
+Build-Depends: libssh

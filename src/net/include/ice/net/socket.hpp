@@ -1,10 +1,10 @@
 #pragma once
-#include <ice/config.hpp>
 #include <ice/error.hpp>
 #include <ice/handle.hpp>
+#include <ice/net/config.hpp>
 #include <ice/net/endpoint.hpp>
 #include <ice/net/option.hpp>
-#include <ice/service.hpp>
+#include <ice/net/service.hpp>
 #include <functional>
 #include <limits>
 #include <cstdint>
@@ -31,7 +31,7 @@ public:
   using handle_type = ice::handle<int, -1, close_type>;
 #endif
 
-  explicit socket(ice::service& service) noexcept : service_(service) {}
+  explicit socket(net::service& service) noexcept : service_(service) {}
 
   socket(socket&& other) noexcept = default;
   socket& operator=(socket&& other) noexcept = default;
@@ -77,7 +77,7 @@ public:
   std::error_code get(int level, int name, void* data, socklen_t& size) const noexcept;
   std::error_code set(int level, int name, const void* data, socklen_t size) noexcept;
 
-  ice::service& service() const noexcept
+  net::service& service() const noexcept
   {
     return service_.get();
   }
@@ -93,7 +93,7 @@ public:
   }
 
 protected:
-  std::reference_wrapper<ice::service> service_;
+  std::reference_wrapper<net::service> service_;
   handle_type handle_;
 
 private:

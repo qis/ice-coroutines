@@ -1,6 +1,6 @@
-#include "service.hpp"
+#include "ice/net/service.hpp"
 #include <ice/error.hpp>
-#include <ice/event.hpp>
+#include <ice/net/event.hpp>
 #include <vector>
 #include <cassert>
 
@@ -17,7 +17,7 @@
 #  include <unistd.h>
 #endif
 
-namespace ice {
+namespace ice::net {
 
 #if ICE_OS_WIN32
 void service::close_type::operator()(std::uintptr_t handle) noexcept
@@ -180,4 +180,4 @@ std::error_code service::interrupt() noexcept
   return {};
 }
 
-}  // namespace ice
+}  // namespace ice::net

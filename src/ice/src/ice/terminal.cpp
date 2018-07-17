@@ -1,4 +1,4 @@
-#include "terminal.hpp"
+#include "ice/terminal.hpp"
 
 #if ICE_OS_WIN32
 #  include <io.h>

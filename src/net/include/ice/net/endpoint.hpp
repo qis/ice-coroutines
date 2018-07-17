@@ -1,5 +1,5 @@
 #pragma once
-#include <ice/config.hpp>
+#include <ice/net/config.hpp>
 #include <ice/net/types.hpp>
 #include <string>
 #include <system_error>

@@ -2,15 +2,15 @@
 #include <ice/async.hpp>
 #include <ice/config.hpp>
 #include <ice/net/endpoint.hpp>
+#include <ice/net/service.hpp>
 #include <ice/net/socket.hpp>
-#include <ice/service.hpp>
 #include <system_error>
 
 namespace ice::net::tcp {
 
 class socket : public net::socket {
 public:
-  explicit socket(ice::service& service) noexcept : net::socket(service) {}
+  explicit socket(net::service& service) noexcept : net::socket(service) {}
 
   std::error_code create(int family) noexcept;
   std::error_code create(int family, int protocol) noexcept;

@@ -1,13 +1,13 @@
 #include <ice/async.hpp>
-#include <ice/service.hpp>
+#include <ice/net/service.hpp>
 #include <gtest/gtest.h>
 #include <thread>
 
 // Verifies that the schedule operation works.
 TEST(service, schedule)
 {
-  static ice::service c0;
-  static ice::service c1;
+  static ice::net::service c0;
+  static ice::net::service c1;
   EXPECT_FALSE(c0.create());
   EXPECT_FALSE(c1.create());
 

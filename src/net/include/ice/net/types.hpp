@@ -1,5 +1,5 @@
 #pragma once
-#include <ice/config.hpp>
+#include <ice/net/config.hpp>
 
 struct sockaddr;
 struct sockaddr_in;

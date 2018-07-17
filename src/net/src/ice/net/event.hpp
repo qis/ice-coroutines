@@ -1,7 +1,7 @@
 #pragma once
 #include <ice/config.hpp>
 #include <ice/error.hpp>
-#include <ice/service.hpp>
+#include <ice/net/service.hpp>
 #include <atomic>
 #include <experimental/coroutine>
 #include <system_error>
@@ -18,7 +18,7 @@
 #  define ICE_EVENT_SEND EVFILT_WRITE
 #endif
 
-namespace ice {
+namespace ice::net {
 
 #if ICE_OS_WIN32
 
@@ -178,4 +178,4 @@ private:
 
 #endif
 
-}  // namespace ice
+}  // namespace ice::net

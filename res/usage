@@ -1,0 +1,4 @@
+The package ice is compatible with built-in CMake targets:
+
+    find_package(ice CONFIG REQUIRED net ssh)
+    target_link_libraries(main PRIVATE ice::ice ice::net ice::ssh)

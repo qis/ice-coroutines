@@ -1,10 +1,10 @@
 #pragma once
-#include <ice/config.hpp>
+#include <ice/net/config.hpp>
 #include <ice/scheduler.hpp>
 #include <ice/utility.hpp>
 #include <system_error>
 
-namespace ice {
+namespace ice::net {
 
 class service final : public scheduler<service> {
 public:
@@ -73,4 +73,4 @@ private:
 #endif
 };
 
-}  // namespace ice
+}  // namespace ice::net

@@ -9,7 +9,7 @@ file(GLOB sources CONFIGURE_DEPENDS *.hpp *.cpp)
 source_group("" FILES ${sources})
 
 add_executable(tests EXCLUDE_FROM_ALL ${sources})
-target_link_libraries(tests PUBLIC ice)
+target_link_libraries(tests PUBLIC ice::net)
 
 find_package(GTest REQUIRED)
 target_link_libraries(tests PUBLIC GTest::Main)
