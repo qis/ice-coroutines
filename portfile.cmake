@@ -1,3 +1,8 @@
+if (VCPKG_LIBRARY_LINKAGE STREQUAL static)
+  message(STATUS "Warning: Static building not supported. Building dynamic.")
+  set(VCPKG_LIBRARY_LINKAGE dynamic)
+endif()
+
 include(vcpkg_common_functions)
 
 set(BUILD_NET OFF)

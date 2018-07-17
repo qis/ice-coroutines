@@ -1,0 +1,30 @@
+#include <windows.h>
+
+VS_VERSION_INFO VERSIONINFO
+  PRODUCTVERSION  @PROJECT_VERSION_MAJOR@, @PROJECT_VERSION_MINOR@
+  FILEVERSION     @PROJECT_VERSION_MAJOR@, @PROJECT_VERSION_MINOR@, @PROJECT_VERSION_PATCH@, 0
+  FILEOS          VOS_NT_WINDOWS32
+  FILETYPE        VFT_APP
+  FILESUBTYPE     VFT2_UNKNOWN
+  FILEFLAGSMASK   VS_FFI_FILEFLAGSMASK
+#ifdef _DEBUG
+  FILEFLAGS       VS_FF_DEBUG
+#else
+  FILEFLAGS       0
+#endif
+BEGIN
+  BLOCK "StringFileInfo"
+  BEGIN
+    BLOCK "000004B0"
+    BEGIN
+      VALUE "FileDescription",  "ICE SSH"
+      VALUE "ProductName",      "ICE"
+      VALUE "ProductVersion",   "@PROJECT_VERSION_MAJOR@.@PROJECT_VERSION_MINOR@.@PROJECT_VERSION_PATCH@"
+      VALUE "LegalCopyright",   "2018 Alexej Harm, https://github.com/qis/ice/tree/master/src/ssh"
+    END
+  END
+  BLOCK "VarFileInfo"
+  BEGIN
+    VALUE "Translation", 0x0, 0x04B0
+  END
+END

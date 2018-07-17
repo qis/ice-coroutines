@@ -9,8 +9,14 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/include/ice/ssh PREFIX "include" F
 file(GLOB_RECURSE sources CONFIGURE_DEPENDS src/ice/ssh/*.hpp src/ice/ssh/*.cpp)
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/src/ice/ssh PREFIX "src" FILES ${sources})
 
-add_library(ssh STATIC ${headers} ${sources})
+add_library(ssh SHARED ${headers} ${sources})
 set_target_properties(ssh PROPERTIES OUTPUT_NAME "ice-ssh")
+
+if(WIN32)
+  configure_file(main.rc.in ${CMAKE_CURRENT_BINARY_DIR}/main.rc)
+  source_group("res" FILES ${CMAKE_CURRENT_BINARY_DIR}/main.rc main.manifest)
+  target_sources(ssh PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/main.rc main.manifest)
+endif()
 
 target_include_directories(ssh PRIVATE src PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -18,13 +24,25 @@ target_include_directories(ssh PRIVATE src PUBLIC
 
 target_link_libraries(ssh PUBLIC ice::net)
 
-#find_path(LIBSSH_ROOT include/libssh/libssh.h)
-#add_library(libssh STATIC IMPORTED)
-#set_target_properties(libssh PROPERTIES
-#  INTERFACE_INCLUDE_DIRECTORIES ${LIBSSH_ROOT}/include
-#  IMPORTED_LOCATION_DEBUG ${LIBSSH_ROOT}/debug/lib/${CMAKE_STATIC_LIBRARY_PREFIX}ssh${CMAKE_STATIC_LIBRARY_SUFFIX}
-#  IMPORTED_LOCATION_RELEASE ${LIBSSH_ROOT}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}ssh${CMAKE_STATIC_LIBRARY_SUFFIX})
-#target_link_libraries(ssh PRIVATE libssh)
+find_path(ICE_LIBSSH_INCLUDE libssh/libssh.h)
+if(NOT ICE_LIBSSH_INCLUDE)
+  message(FATAL_ERROR "Missing header file: libssh/libssh.h")
+endif()
+
+find_library(ICE_LIBSSH_RELEASE NAMES ssh PATHS ${ICE_LIBSSH_INCLUDE}/../lib NO_DEFAULT_PATH)
+if(NOT ICE_LIBSSH_RELEASE)
+  message(FATAL_ERROR "Missing vcpkg library: ssh (release)")
+endif()
+
+find_library(ICE_LIBSSH_DEBUG NAMES ssh PATHS ${ICE_LIBSSH_INCLUDE}/../debug/lib NO_DEFAULT_PATH)
+if(NOT ICE_LIBSSH_DEBUG)
+  message(FATAL_ERROR "Missing vcpkg library: ssh (debug)")
+endif()
+
+target_include_directories(ssh PRIVATE ${ICE_LIBSSH_INCLUDE})
+target_link_libraries(ssh PRIVATE
+  $<$<NOT:$<CONFIG:DEBUG>>:${ICE_LIBSSH_RELEASE}>
+  $<$<CONFIG:DEBUG>:${ICE_LIBSSH_DEBUG}>)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   target_link_libraries(ssh PUBLIC c++experimental)
