@@ -1,19 +1,18 @@
 #pragma once
 #include <ice/error.hpp>
 #include <ice/ssh/config.hpp>
+#include <ice/ssh/server.hpp>
 #include <ice/ssh/session.hpp>
 #include <exception>
 
-typedef struct ssh_bind_struct* ssh_bind;
-
 namespace ice::ssh {
 
-class domain_error : public std::exception {
+class domain_error final : public std::exception {
 public:
-  domain_error(std::string what);
-  domain_error(std::string what, std::string info);
-  domain_error(std::string what, ssh_session session);
-  domain_error(std::string what, ssh_bind bind);
+  ICE_SSH_EXPORT domain_error(std::string what);
+  ICE_SSH_EXPORT domain_error(std::string what, std::string info);
+  ICE_SSH_EXPORT domain_error(std::string what, ssh_session session);
+  ICE_SSH_EXPORT domain_error(std::string what, ssh_bind bind);
 
   const char* what() const noexcept override
   {

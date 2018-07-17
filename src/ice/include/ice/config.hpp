@@ -1,4 +1,5 @@
 #pragma once
+#include <fmt/core.h>
 
 #if defined(WIN32)
 #  define ICE_OS_WIN32 1
@@ -23,11 +24,19 @@
 #endif
 
 #ifndef ICE_EXCEPTIONS
-#  if (defined(_MSC_VER) && _HAS_EXCEPTIONS) || !defined(_MSC_VER) && __cpp_exceptions
-#    define ICE_EXCEPTIONS 1
+#  ifdef _MSC_VER
+#    if defined(_HAS_EXCEPTIONS) && !_HAS_EXCEPTIONS
+#      define ICE_EXCEPTIONS 0
+#    endif
 #  else
-#    define ICE_EXCEPTIONS 0
+#    if !defined(__cpp_exceptions) || !__cpp_exceptions
+#      define ICE_EXCEPTIONS 0
+#    endif
 #  endif
+#endif
+
+#ifndef ICE_EXCEPTIONS
+#  define ICE_EXCEPTIONS 1
 #endif
 
 #ifndef ICE_NO_EXCEPTIONS

@@ -10,9 +10,8 @@ file(GLOB_RECURSE sources CONFIGURE_DEPENDS src/ice/ssh/*.hpp src/ice/ssh/*.cpp)
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/src/ice/ssh PREFIX "src" FILES ${sources})
 
 add_library(ssh SHARED ${headers} ${sources})
-set_target_properties(ssh PROPERTIES
-  WINDOWS_EXPORT_ALL_SYMBOLS ON
-  OUTPUT_NAME "ice-ssh")
+#set_target_properties(ssh PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS ON)
+set_target_properties(ssh PROPERTIES OUTPUT_NAME "ice-ssh")
 
 if(WIN32)
   configure_file(main.rc.in ${CMAKE_CURRENT_BINARY_DIR}/main.rc)
