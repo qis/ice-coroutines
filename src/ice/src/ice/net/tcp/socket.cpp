@@ -86,14 +86,14 @@ std::error_code socket::listen(std::size_t backlog) noexcept
 
 #if ICE_OS_WIN32
 
-async<tcp::socket> socket::accept(net::endpoint& endpoint) noexcept
+async<socket> socket::accept(endpoint& endpoint) noexcept
 {
   constexpr static DWORD buffer_size = sockaddr_storage_size + 16;
   std::array<char, buffer_size * 2> buffer;
   DWORD bytes = 0;
-  tcp::socket client{ service() };
+  socket client{ service() };
   if (client.create(family(), protocol())) {
-    co_return tcp::socket{ service() };
+    co_return socket{ service() };
   }
   const auto server_handle = handle().as<HANDLE>();
   const auto server_socket = handle().as<SOCKET>();
@@ -112,7 +112,7 @@ async<tcp::socket> socket::accept(net::endpoint& endpoint) noexcept
       rc = ::GetLastError();
     }
     if (rc != WSAECONNRESET) {
-      co_return tcp::socket{ service() };
+      co_return socket{ service() };
     }
   }
   const auto addr = reinterpret_cast<::sockaddr_storage*>(&buffer[buffer_size]);
@@ -129,7 +129,7 @@ async<tcp::socket> socket::accept(net::endpoint& endpoint) noexcept
   co_return std::move(client);
 }
 
-async<std::error_code> socket::connect(const net::endpoint& endpoint) noexcept
+async<std::error_code> socket::connect(const endpoint& endpoint) noexcept
 {
   static const detail::connect_ex connect;
   if (connect.ec) {
@@ -208,9 +208,9 @@ async<std::size_t> socket::send(const char* data, std::size_t size) noexcept
 
 #else
 
-async<tcp::socket> socket::accept(net::endpoint& endpoint) noexcept
+async<socket> socket::accept(endpoint& endpoint) noexcept
 {
-  tcp::socket client{ service() };
+  socket client{ service() };
   while (true) {
     endpoint.size() = endpoint.capacity();
     client.handle().reset(::accept4(handle(), &endpoint.sockaddr(), &endpoint.size(), SOCK_NONBLOCK));
@@ -230,7 +230,7 @@ async<tcp::socket> socket::accept(net::endpoint& endpoint) noexcept
   co_return std::move(client);
 }
 
-async<std::error_code> socket::connect(const net::endpoint& endpoint) noexcept
+async<std::error_code> socket::connect(const endpoint& endpoint) noexcept
 {
   while (true) {
     if (::connect(handle(), &endpoint.sockaddr(), endpoint.size()) == 0) {

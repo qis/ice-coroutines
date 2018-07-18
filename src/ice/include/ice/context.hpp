@@ -53,7 +53,7 @@ public:
 
 private:
   std::atomic_bool stop_ = false;
-  ice::thread_local_storage index_;
+  thread_local_storage index_;
   std::condition_variable cv_;
   std::mutex mutex_;
 };

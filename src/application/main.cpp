@@ -1,20 +1,17 @@
 #include <ice/log.hpp>
 #include <ice/net/endpoint.hpp>
 #include <ice/net/service.hpp>
-#include <ice/ssh/log.hpp>
-#include <ice/ssh/session.hpp>
+#include <ice/net/ssh/session.hpp>
 #include <ice/utility.hpp>
 
 ice::log::task client(ice::net::service& service, ice::net::endpoint endpoint) noexcept
 {
   const auto ose = ice::on_scope_exit([&]() { service.stop(); });
-  ice::ssh::log::level(ice::log::level::debug);
-  ice::ssh::log::handler([](auto level, auto message) {
-    ice::log::queue(ice::log::clock::now(), level, message);
-  });
-  auto session = ice::ssh::create_session(service);
-  session->set_timeout(std::chrono::seconds{ 3 });
-  co_await session->connect(endpoint);
+  ice::net::ssh::session session{ service };
+  if (const auto ec = co_await session.connect(endpoint)) {
+    ice::log::error(ec, "could not connect to {}", endpoint);
+    co_return;
+  }
   ice::log::info("connecting to {} ...", endpoint);
   co_return;
 }

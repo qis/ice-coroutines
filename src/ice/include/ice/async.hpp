@@ -416,6 +416,11 @@ public:
     new (&m_valueStorage) T(std::forward<VALUE>(value));
   }
 
+  void return_value(T value) noexcept(std::is_nothrow_move_constructible_v<T>)
+  {
+    new (&m_valueStorage) T(std::move(value));
+  }
+
   T& result() &
   {
     rethrow_if_unhandled_exception();

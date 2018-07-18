@@ -119,7 +119,7 @@ private:
   {
     auto base = attributes(stream);
     base &= ~(base & 0x0F);
-    if (!format.is(ice::style::dark)) {
+    if (!format.is(style::dark)) {
       base |= FOREGROUND_INTENSITY;
     }
     ::SetConsoleTextAttribute(handle(stream), base | color);

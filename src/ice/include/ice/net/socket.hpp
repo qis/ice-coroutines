@@ -1,7 +1,7 @@
 #pragma once
+#include <ice/config.hpp>
 #include <ice/error.hpp>
 #include <ice/handle.hpp>
-#include <ice/net/config.hpp>
 #include <ice/net/endpoint.hpp>
 #include <ice/net/option.hpp>
 #include <ice/net/service.hpp>
@@ -23,15 +23,16 @@ public:
   struct close_type {
     void operator()(std::uintptr_t handle) noexcept;
   };
-  using handle_type = ice::handle<std::uintptr_t, std::numeric_limits<std::uintptr_t>::max(), close_type>;
+  using handle_type = handle<std::uintptr_t, std::numeric_limits<std::uintptr_t>::max(), close_type>;
 #else
   struct close_type {
     void operator()(int handle) noexcept;
   };
-  using handle_type = ice::handle<int, -1, close_type>;
+  using handle_type = handle<int, -1, close_type>;
 #endif
+  using handle_view = handle_type::view;
 
-  explicit socket(net::service& service) noexcept : service_(service) {}
+  explicit socket(service& service) noexcept : service_(service) {}
 
   socket(socket&& other) noexcept = default;
   socket& operator=(socket&& other) noexcept = default;
@@ -48,7 +49,7 @@ public:
 
   std::error_code create(int family, int type, int protocol = 0) noexcept;
   std::error_code bind(const endpoint& endpoint) noexcept;
-  std::error_code shutdown(net::shutdown direction = net::shutdown::both) noexcept;
+  std::error_code shutdown(shutdown direction = shutdown::both) noexcept;
 
   void close() noexcept
   {
@@ -62,14 +63,14 @@ public:
 
   int type() const noexcept;
   int protocol() const noexcept;
-  net::endpoint name() const noexcept;
+  endpoint name() const noexcept;
 
-  std::error_code get(net::option& option) const noexcept
+  std::error_code get(option& option) const noexcept
   {
     return get(option.level(), option.name(), option.data(), option.size());
   }
 
-  std::error_code set(const net::option& option) noexcept
+  std::error_code set(const option& option) noexcept
   {
     return set(option.level(), option.name(), option.data(), option.size());
   }
@@ -77,17 +78,12 @@ public:
   std::error_code get(int level, int name, void* data, socklen_t& size) const noexcept;
   std::error_code set(int level, int name, const void* data, socklen_t size) noexcept;
 
-  net::service& service() const noexcept
+  service& service() const noexcept
   {
     return service_.get();
   }
 
-  constexpr handle_type& handle() noexcept
-  {
-    return handle_;
-  }
-
-  constexpr const handle_type& handle() const noexcept
+  handle_view handle() const noexcept
   {
     return handle_;
   }

@@ -35,32 +35,32 @@ class format {
 public:
   constexpr format() noexcept = default;
   constexpr explicit format(std::uint16_t value) noexcept : value_(value) {}
-  constexpr format(ice::color color) noexcept : format(static_cast<std::uint16_t>(color)) {}
-  constexpr format(ice::style style) noexcept : format(static_cast<std::uint16_t>(style)) {}
+  constexpr format(color color) noexcept : format(static_cast<std::uint16_t>(color)) {}
+  constexpr format(style style) noexcept : format(static_cast<std::uint16_t>(style)) {}
 
   constexpr explicit operator bool() const noexcept
   {
     return value_ != 0;
   }
 
-  constexpr format& operator|(ice::color color) noexcept
+  constexpr format& operator|(color color) noexcept
   {
     value_ = static_cast<std::uint16_t>((value_ & 0xF0) | static_cast<std::uint16_t>(color));
     return *this;
   }
 
-  constexpr format& operator|(ice::style style) noexcept
+  constexpr format& operator|(style style) noexcept
   {
     value_ = static_cast<std::uint16_t>(value_ | static_cast<std::uint16_t>(style));
     return *this;
   }
 
-  constexpr ice::color color() const noexcept
+  constexpr color color() const noexcept
   {
     return static_cast<ice::color>(value_ & 0x0F);
   }
 
-  constexpr bool is(ice::style style) const noexcept
+  constexpr bool is(style style) const noexcept
   {
     return value_ & static_cast<std::uint16_t>(style);
   }

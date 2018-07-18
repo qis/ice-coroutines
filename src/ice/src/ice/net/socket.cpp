@@ -76,9 +76,9 @@ std::error_code socket::shutdown(net::shutdown direction) noexcept
 #if ICE_OS_WIN32
   auto value = 0;
   switch (direction) {
-  case net::shutdown::recv: value = SD_RECEIVE; break;
-  case net::shutdown::send: value = SD_SEND; break;
-  case net::shutdown::both: value = SD_BOTH; break;
+  case shutdown::recv: value = SD_RECEIVE; break;
+  case shutdown::send: value = SD_SEND; break;
+  case shutdown::both: value = SD_BOTH; break;
   }
   if (::shutdown(handle_, value) == SOCKET_ERROR) {
     return make_error_code(::WSAGetLastError());
@@ -86,9 +86,9 @@ std::error_code socket::shutdown(net::shutdown direction) noexcept
 #else
   auto value = 0;
   switch (direction) {
-  case net::shutdown::recv: value = SHUT_RD; break;
-  case net::shutdown::send: value = SHUT_WR; break;
-  case net::shutdown::both: value = SHUT_RDWR; break;
+  case shutdown::recv: value = SHUT_RD; break;
+  case shutdown::send: value = SHUT_WR; break;
+  case shutdown::both: value = SHUT_RDWR; break;
   }
   if (::shutdown(handle_, value) < 0) {
     return make_error_code(errno);

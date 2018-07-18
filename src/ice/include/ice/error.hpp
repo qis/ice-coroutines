@@ -21,13 +21,13 @@ template <typename T>
 inline std::error_code make_error_code(T ev) noexcept
 {
   if constexpr (std::is_same_v<T, std::errc>) {
-    return { static_cast<int>(ev), ice::system_category() };
-  } else if constexpr (std::is_same_v<T, ice::errc>) {
-    return { static_cast<int>(ev), ice::domain_category() };
+    return { static_cast<int>(ev), system_category() };
+  } else if constexpr (std::is_same_v<T, errc>) {
+    return { static_cast<int>(ev), domain_category() };
   } else if constexpr (std::is_same_v<T, std::error_code>) {
     return ev;
   } else {
-    return { static_cast<int>(ev), ice::native_category() };
+    return { static_cast<int>(ev), native_category() };
   }
 }
 

@@ -75,14 +75,14 @@ public:
 
 private:
   std::thread thread_;
-  ice::context context_;
+  context context_;
 };
 
 logger g_logger;
 
 }  // namespace
 
-ice::format get_level_format(level level) noexcept
+format get_level_format(level level) noexcept
 {
   // clang-format off
   switch (level) {

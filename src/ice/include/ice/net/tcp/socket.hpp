@@ -16,8 +16,8 @@ public:
   std::error_code create(int family, int protocol) noexcept;
   std::error_code listen(std::size_t backlog = 0) noexcept;
 
-  async<tcp::socket> accept(net::endpoint& endpoint) noexcept;
-  async<std::error_code> connect(const net::endpoint& endpoint) noexcept;
+  async<socket> accept(endpoint& endpoint) noexcept;
+  async<std::error_code> connect(const endpoint& endpoint) noexcept;
   async<std::size_t> recv(char* data, std::size_t size) noexcept;
   async<std::size_t> send(const char* data, std::size_t size) noexcept;
 };

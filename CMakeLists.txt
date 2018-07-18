@@ -59,7 +59,6 @@ set_property(GLOBAL PROPERTY PREDEFINED_TARGETS_FOLDER build)
 list(INSERT CMAKE_MODULE_PATH 0 ${CMAKE_CURRENT_SOURCE_DIR}/res/cmake)
 
 add_subdirectory(src/ice)
-add_subdirectory(src/net)
 add_subdirectory(src/ssh)
 add_subdirectory(src/application)
 

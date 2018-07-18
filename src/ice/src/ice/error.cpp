@@ -329,10 +329,10 @@ public:
 
   std::string message(int ev) const override
   {
-    switch (static_cast<ice::errc>(ev)) {
-    case ice::errc::eof: return "end of file";
-    case ice::errc::invalid_address: return "invalid address";
-    case ice::errc::version_mismatch: return "version mismatch";
+    switch (static_cast<errc>(ev)) {
+    case errc::eof: return "end of file";
+    case errc::invalid_address: return "invalid address";
+    case errc::version_mismatch: return "version mismatch";
     }
     return "unknown error";
   }

@@ -36,50 +36,50 @@ enum class level : std::uint16_t {
 
 // clang-format on
 
-ice::format get_level_format(level level) noexcept;
+format get_level_format(level level) noexcept;
 const char* get_level_string(level level, bool padding = true) noexcept;
 
 struct entry {
   std::tm tm;
   std::chrono::milliseconds ms;
-  ice::log::level level = level::info;
-  ice::format format;
+  level level = level::info;
+  format format;
   std::string message;
 };
 
 class sink {
 public:
   virtual ~sink() = default;
-  virtual void print(const ice::log::entry& entry) = 0;
+  virtual void print(const entry& entry) = 0;
 };
 
 void set(std::shared_ptr<sink> sink);
 
 void limit(std::size_t queue_size) noexcept;
 
-void queue(time_point tp, level level, ice::format format, std::string message) noexcept;
+void queue(time_point tp, level level, format format, std::string message) noexcept;
 
 template <typename Arg, typename... Args>
-inline void queue(time_point tp, level level, ice::format format, std::string_view message, Arg&& arg, Args&&... args)
+inline void queue(time_point tp, level level, format format, std::string_view message, Arg&& arg, Args&&... args)
 {
   queue(tp, level, format, fmt::format(message, std::forward<Arg>(arg), std::forward<Args>(args)...));
 }
 
 inline void queue(time_point tp, level level, std::string message) noexcept
 {
-  queue(tp, level, ice::format{}, std::move(message));
+  queue(tp, level, format{}, std::move(message));
 }
 
 template <typename Arg, typename... Args>
 inline void queue(time_point tp, level level, std::string_view message, Arg&& arg, Args&&... args)
 {
-  queue(tp, level, ice::format{}, fmt::format(message, std::forward<Arg>(arg), std::forward<Args>(args)...));
+  queue(tp, level, format{}, fmt::format(message, std::forward<Arg>(arg), std::forward<Args>(args)...));
 }
 
 // clang-format off
 
 template <typename Arg, typename... Args>
-inline int queue(time_point tp, level level, std::error_code ec, ice::format format, std::string_view message, Arg&& arg, Args&&... args)
+inline int queue(time_point tp, level level, std::error_code ec, format format, std::string_view message, Arg&& arg, Args&&... args)
 {
   queue(tp, level, format,
     fmt::format("{} error {}: {} ({})", ec.category().name(), ec.value(),
@@ -89,7 +89,7 @@ inline int queue(time_point tp, level level, std::error_code ec, ice::format for
 
 inline int queue(time_point tp, level level, std::error_code ec, std::string message) noexcept
 {
-  queue(tp, level, ice::format{},
+  queue(tp, level, format{},
     fmt::format("{} error {}: {} ({})", ec.category().name(), ec.value(), message, ec.message()));
   return ec.value();
 }
@@ -97,7 +97,7 @@ inline int queue(time_point tp, level level, std::error_code ec, std::string mes
 template <typename Arg, typename... Args>
 inline int queue(time_point tp, level level, std::error_code ec, std::string_view message, Arg&& arg, Args&&... args)
 {
-  queue(tp, level, ice::format{},
+  queue(tp, level, format{},
     fmt::format("{} error {}: {} ({})", ec.category().name(), ec.value(),
       fmt::format(message, std::forward<Arg>(arg), std::forward<Args>(args)...), ec.message()));
   return ec.value();
@@ -183,10 +183,10 @@ struct task {
       }
       catch (const std::system_error& e) {
         const auto ec = e.code();
-        error("unhandled exception: {} error {}: {} ({})", ec.category().name(), ec.value(), e.what(), ec.message());
+        error("{} error {}: {} ({})", ec.category().name(), ec.value(), e.what(), ec.message());
       }
       catch (const std::exception& e) {
-        error("unhandled exception: {}", e.what());
+        error(e.what());
       }
       catch (...) {
         error("unhandled exception");

@@ -6,7 +6,13 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/src/ice PREFIX "src" FILES ${sourc
 
 add_library(ice STATIC ${headers} ${sources})
 
+include(ConfigureHeader)
+configure_header(config.hpp.in config.cpp.in ${CMAKE_CURRENT_BINARY_DIR}/include/ice/config.hpp)
+source_group("include" FILES ${CMAKE_CURRENT_BINARY_DIR}/include/ice/config.hpp)
+target_sources(ice PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/include/ice/config.hpp)
+
 target_include_directories(ice PRIVATE src PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
 
@@ -18,8 +24,15 @@ endif()
 find_package(fmt CONFIG REQUIRED)
 target_link_libraries(ice PUBLIC fmt::fmt)
 
+find_package(OpenSSL REQUIRED)
+target_link_libraries(ice PUBLIC OpenSSL::SSL OpenSSL::Crypto)
+
 find_package(ZLIB REQUIRED)
 target_link_libraries(ice PUBLIC ZLIB::ZLIB)
+
+if(WIN32)
+  target_link_libraries(ice PUBLIC ws2_32 mswsock)
+endif()
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   target_link_libraries(ice PUBLIC c++experimental)
@@ -31,6 +44,7 @@ install(TARGETS ice EXPORT ice
   ARCHIVE DESTINATION lib)
 
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/ice DESTINATION include FILES_MATCHING PATTERN "*.hpp")
+install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/include/ice DESTINATION include FILES_MATCHING PATTERN "*.hpp")
 install(EXPORT ice FILE ice-targets.cmake NAMESPACE ice:: DESTINATION lib/cmake/ice)
 
 include(CMakePackageConfigHelpers)

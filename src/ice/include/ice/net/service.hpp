@@ -1,5 +1,5 @@
 #pragma once
-#include <ice/net/config.hpp>
+#include <ice/config.hpp>
 #include <ice/scheduler.hpp>
 #include <ice/utility.hpp>
 #include <system_error>
@@ -12,13 +12,14 @@ public:
   struct close_type {
     void operator()(std::uintptr_t handle) noexcept;
   };
-  using handle_type = ice::handle<std::uintptr_t, 0, close_type>;
+  using handle_type = handle<std::uintptr_t, 0, close_type>;
 #else
   struct close_type {
     void operator()(int handle) noexcept;
   };
-  using handle_type = ice::handle<int, -1, close_type>;
+  using handle_type = handle<int, -1, close_type>;
 #endif
+  using handle_view = handle_type::view;
 
   std::error_code create() noexcept;
   std::error_code run(std::size_t event_buffer_size = 128) noexcept;
@@ -40,23 +41,13 @@ public:
     return interrupt();
   }
 
-  constexpr handle_type& handle() noexcept
-  {
-    return handle_;
-  }
-
-  constexpr const handle_type& handle() const noexcept
+  handle_view handle() const noexcept
   {
     return handle_;
   }
 
 #if ICE_OS_LINUX
-  constexpr handle_type& events() noexcept
-  {
-    return events_;
-  }
-
-  constexpr const handle_type& events() const noexcept
+  handle_view events() const noexcept
   {
     return events_;
   }
@@ -66,7 +57,7 @@ private:
   std::error_code interrupt() noexcept;
 
   std::atomic_bool stop_ = false;
-  ice::thread_local_storage index_;
+  thread_local_storage index_;
   handle_type handle_;
 #if ICE_OS_LINUX
   handle_type events_;

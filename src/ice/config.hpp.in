@@ -1,5 +1,6 @@
 #pragma once
 #include <fmt/core.h>
+#include <cstddef>
 
 #if defined(WIN32)
 #  define ICE_OS_WIN32 1
@@ -54,6 +55,16 @@
 #ifndef ICE_NO_DEBUG
 #  define ICE_NO_DEBUG (!ICE_DEBUG)
 #endif
+
+namespace ice {
+
+constexpr inline std::size_t sockaddr_storage_size = @sockaddr_storage_size@;
+constexpr inline std::size_t sockaddr_storage_alignment = @sockaddr_storage_alignment@;
+
+constexpr inline std::size_t linger_size = @linger_size@;
+constexpr inline std::size_t linger_alignment = @linger_alignment@;
+
+}  // namespace ice
 
 namespace fmt {
 inline namespace v5 {
