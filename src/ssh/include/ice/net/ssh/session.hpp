@@ -1,50 +1,70 @@
 #pragma once
 #include <ice/async.hpp>
+#include <ice/config.hpp>
+#include <ice/net/ssh/types.hpp>
 #include <ice/net/tcp/socket.hpp>
+#include <memory>
 #include <system_error>
+
+#if ICE_OS_WIN32
+#include <array>
+#endif
 
 namespace ice::net::ssh {
 
 class session {
 public:
-  session(service& service) : socket_(service) {}
+  enum class operation {
+    none,
+    recv,
+    send,
+  };
 
-  session(session&& other) = default;
+  struct close_type {
+    void operator()(LIBSSH2_SESSION* handle) noexcept;
+  };
+  using handle_type = handle<LIBSSH2_SESSION*, nullptr, close_type>;
+  using handle_view = handle_type::view;
+
+  session(service& service) noexcept : socket_(service) {}
+
+  session(session&& other) noexcept;
   session(const session& other) = delete;
-  session& operator=(session&& other) = default;
+  session& operator=(session&& other) noexcept;
   session& operator=(const session& other) = delete;
 
-  ~session() = default;
+  ~session();
 
-  async<std::error_code> connect(net::endpoint endpoint)
-  {
-    if (const auto ec = socket_.create(endpoint.family())) {
-      co_return ec;
-    }
-    if (const auto ec = co_await socket_.connect(endpoint)) {
-      co_return ec;
-    }
-    co_return {};
-  }
+  std::error_code create(int family) noexcept;
 
-  net::service& service() const
+  async<std::error_code> connect(net::endpoint endpoint) noexcept;
+
+  async<std::error_code> io() noexcept;
+
+  net::service& service() const noexcept
   {
     return socket_.service();
   }
 
-  //ssh_session handle() noexcept
-  //{
-  //  return handle_.get();
-  //}
-
-  //const ssh_session handle() const noexcept
-  //{
-  //  return handle_.get();
-  //}
+  handle_view handle() const noexcept
+  {
+    return handle_;
+  }
 
 private:
-  net::tcp::socket socket_;
-  //std::unique_ptr<ssh_session_struct, decltype(&ssh_free)> handle_ = { nullptr, ssh_free };
+  friend long long on_recv(session& session, char* data, std::size_t size, int flags) noexcept;
+  friend long long on_send(session& session, const char* data, std::size_t size, int flags) noexcept;
+
+  tcp::socket socket_;
+  handle_type handle_;
+
+  operation operation_ = operation::none;
+#if ICE_OS_WIN32
+  std::array<char, 4096> storage_;
+  std::size_t size_ = 0;
+  std::size_t bytes_ = 0;
+  bool ready_ = false;
+#endif
 };
 
 }  // namespace ice::net::ssh

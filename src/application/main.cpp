@@ -8,6 +8,10 @@ ice::log::task client(ice::net::service& service, ice::net::endpoint endpoint) n
 {
   const auto ose = ice::on_scope_exit([&]() { service.stop(); });
   ice::net::ssh::session session{ service };
+  if (const auto ec = session.create(endpoint.family())) {
+    ice::log::error(ec, "could not create ssh session");
+    co_return;
+  }
   if (const auto ec = co_await session.connect(endpoint)) {
     ice::log::error(ec, "could not connect to {}", endpoint);
     co_return;
