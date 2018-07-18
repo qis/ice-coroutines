@@ -1,9 +1,18 @@
 #include "ice/net/ssh/session.hpp"
 #include <ice/net/ssh/error.hpp>
+#include <ice/net/event.hpp>
 #include <libssh2.h>
-#include <openssl/bio.h>
-#include <openssl/evp.h>
-#include <openssl/sha.h>
+//#include <openssl/bio.h>
+//#include <openssl/evp.h>
+//#include <openssl/sha.h>
+
+#if ICE_OS_WIN32
+#  include <windows.h>
+#  include <winsock2.h>
+#else
+#  include <sys/socket.h>
+#  include <sys/types.h>
+#endif
 
 namespace ice::net::ssh {
 namespace {
@@ -30,6 +39,22 @@ static LIBSSH2_SEND_FUNC(send_callback)
   return on_send(*reinterpret_cast<session*>(*abstract), data, size, flags);
 }
 
+template <typename Function>
+inline async<std::error_code> loop(session* session, Function function) noexcept
+{
+  while (true) {
+    const auto rv = function();
+    if (rv == LIBSSH2_ERROR_NONE) {
+      break;
+    }
+    if (rv != LIBSSH2_ERROR_EAGAIN) {
+      co_return make_error_code(rv, domain_category());
+    }
+    co_await session->io();
+  }
+  co_return{};
+}
+
 }  // namespace
 
 void session::close_type::operator()(LIBSSH2_SESSION* handle) noexcept
@@ -45,7 +70,7 @@ session::session(session&& other) noexcept : socket_(std::move(other.socket_)), 
   operation_ = other.operation_;
 #if ICE_OS_WIN32
   storage_ = other.storage_;
-  bytes_ = other.bytes_;
+  size_ = other.size_;
   ready_ = other.ready_;
 #endif
   *libssh2_session_abstract(handle_) = this;
@@ -58,7 +83,7 @@ session& session::operator=(session&& other) noexcept
   operation_ = other.operation_;
 #if ICE_OS_WIN32
   storage_ = other.storage_;
-  bytes_ = other.bytes_;
+  size_ = other.size_;
   ready_ = other.ready_;
 #endif
   *libssh2_session_abstract(handle_) = this;
@@ -111,17 +136,16 @@ async<std::error_code> session::connect(net::endpoint endpoint) noexcept
   if (const auto ec = co_await socket_.connect(endpoint)) {
     co_return ec;
   }
-  while (true) {
-    const auto rv = libssh2_session_handshake(handle_, socket_.handle());
-    if (rv == LIBSSH2_ERROR_NONE) {
-      break;
-    }
-    if (rv != LIBSSH2_ERROR_EAGAIN) {
-      co_return make_error_code(rv, domain_category());
-    }
-    co_await io();
-  }
-  co_return{};
+  co_return co_await loop(this, [&]() {
+    return libssh2_session_handshake(handle_, socket_.handle());
+  });
+}
+
+async<std::error_code> session::authenticate(std::string username, std::string password) noexcept
+{
+  return loop(this, [&]() {
+    return libssh2_userauth_password(handle_, username.data(), password.data());
+  });
 }
 
 async<std::error_code> session::io() noexcept
@@ -129,13 +153,14 @@ async<std::error_code> session::io() noexcept
   std::error_code ec;
 #if ICE_OS_WIN32
   switch (operation_) {
-  case operation::recv: bytes_ = co_await socket_.recv(storage_.data(), size_); break;
-  case operation::send: bytes_ = co_await socket_.send(storage_.data(), size_); break;
+  case operation::recv: size_ = co_await socket_.recv(storage_.data(), size_); break;
+  case operation::send: size_ = co_await socket_.send(storage_.data(), size_); break;
   default: ec = make_error_code(std::errc::invalid_argument);
   }
-  if (!bytes_ && !ec) {
+  if (!size_ && !ec) {
     ec = make_error_code(errc::eof);
   }
+  ready_ = true;
 #else
   switch (operation_) {
   case operation::recv: ec = co_await event{ service(), socket_.handle(), ICE_EVENT_RECV }; break;
@@ -143,7 +168,6 @@ async<std::error_code> session::io() noexcept
   default: ec = make_error_code(std::errc::invalid_argument); break;
   }
 #endif
-  ready_ = true;
   co_return ec;
 }
 
@@ -152,16 +176,16 @@ long long on_recv(session& session, char* data, std::size_t size, int flags) noe
 #if ICE_OS_WIN32
   (void)flags;
   if (std::exchange(session.ready_, false)) {
-    assert(session.bytes_ <= size);
-    std::memcpy(data, session.storage_.data(), session.bytes_);
-    return static_cast<ssize_t>(session.bytes_);
+    assert(session.size_ <= size);
+    std::memcpy(data, session.storage_.data(), session.size_);
+    return static_cast<ssize_t>(session.size_);
   }
   session.operation_ = session::operation::recv;
   session.size_ = std::min(size, session.storage_.size());
   return EAGAIN > 0 ? -EAGAIN : EAGAIN;
 #else
   do {
-    if (const auto rc = ::recv(socket_, data, size, flags); rc >= 0) {
+    if (const auto rc = ::recv(session.socket_.handle(), data, size, flags); rc >= 0) {
       return rc;
     }
   } while (errno == EINTR);
@@ -175,11 +199,11 @@ long long on_send(session& session, const char* data, std::size_t size, int flag
 #if ICE_OS_WIN32
   (void)flags;
   if (std::exchange(session.ready_, false)) {
-    assert(session.bytes_ <= size);
-    if (std::memcmp(data, session.storage_.data(), session.bytes_) != 0) {
+    assert(session.size_ <= size);
+    if (std::memcmp(data, session.storage_.data(), session.size_) != 0) {
       assert(false);
     }
-    return static_cast<ssize_t>(session.bytes_);
+    return static_cast<ssize_t>(session.size_);
   }
   session.operation_ = session::operation::send;
   session.size_ = std::min(size, session.storage_.size());
@@ -187,7 +211,7 @@ long long on_send(session& session, const char* data, std::size_t size, int flag
   return EAGAIN > 0 ? -EAGAIN : EAGAIN;
 #else
   do {
-    if (const auto rc = ::send(socket_, data, size, flags); rc >= 0) {
+    if (const auto rc = ::send(session.socket_.handle(), data, size, flags); rc >= 0) {
       return rc;
     }
   } while (errno == EINTR);

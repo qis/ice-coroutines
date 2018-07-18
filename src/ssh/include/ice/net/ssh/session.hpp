@@ -38,6 +38,7 @@ public:
   std::error_code create(int family) noexcept;
 
   async<std::error_code> connect(net::endpoint endpoint) noexcept;
+  async<std::error_code> authenticate(std::string username, std::string password) noexcept;
 
   async<std::error_code> io() noexcept;
 
@@ -62,7 +63,6 @@ private:
 #if ICE_OS_WIN32
   std::array<char, 4096> storage_;
   std::size_t size_ = 0;
-  std::size_t bytes_ = 0;
   bool ready_ = false;
 #endif
 };

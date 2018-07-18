@@ -213,7 +213,7 @@ async<socket> socket::accept(endpoint& endpoint) noexcept
   socket client{ service() };
   while (true) {
     endpoint.size() = endpoint.capacity();
-    client.handle().reset(::accept4(handle(), &endpoint.sockaddr(), &endpoint.size(), SOCK_NONBLOCK));
+    client.handle_.reset(::accept4(handle(), &endpoint.sockaddr(), &endpoint.size(), SOCK_NONBLOCK));
     if (client) {
       break;
     }
