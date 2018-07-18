@@ -3,6 +3,7 @@
 #include <ice/net/event.hpp>
 #include <vector>
 #include <cassert>
+#include <ctime>
 
 #if ICE_OS_WIN32
 #  include <windows.h>
@@ -99,6 +100,7 @@ std::error_code service::run(std::size_t event_buffer_size) noexcept
   using size_type = int;
 #endif
 
+  auto stop = false;
   std::vector<data_type> events;
   events.resize(event_buffer_size);
 
@@ -106,27 +108,38 @@ std::error_code service::run(std::size_t event_buffer_size) noexcept
   const auto events_data = events.data();
   const auto events_size = static_cast<size_type>(events.size());
 
+#if ICE_OS_FREEBSD
+  const timespec ts = {};
+#endif
+
   while (true) {
 #if ICE_OS_WIN32
     size_type count = 0;
-    if (!::GetQueuedCompletionStatusEx(handle_.as<HANDLE>(), events_data, events_size, &count, INFINITE, FALSE)) {
-      if (const auto rc = ::GetLastError(); rc != ERROR_ABANDONED_WAIT_0) {
+    const DWORD timeout = stop ? 0 : INFINITE;
+    if (!::GetQueuedCompletionStatusEx(handle_.as<HANDLE>(), events_data, events_size, &count, timeout, FALSE)) {
+      if (const auto rc = ::GetLastError(); rc != ERROR_ABANDONED_WAIT_0 && rc != WAIT_TIMEOUT) {
         return make_error_code(rc);
       }
       break;
     }
 #elif ICE_OS_LINUX
-    const auto count = ::epoll_wait(handle_, events_data, events_size, -1);
+    const auto timeout = stop ? 0 : -1;
+    const auto count = ::epoll_wait(handle_, events_data, events_size, timeout);
     if (count < 0 && errno != EINTR) {
       return make_error_code(errno);
+    } else if (count == 0) {
+      if (errno != EAGAIN) {
+        return make_error_code(errno);
+      }
+      break;
     }
 #elif ICE_OS_FREEBSD
-    const auto count = ::kevent(handle_, nullptr, 0, events_data, events_size, nullptr);
+    const auto timeout = stop ? &ts : nullptr;
+    const auto count = ::kevent(handle_, nullptr, 0, events_data, events_size, timeout);
     if (count < 0 && errno != EINTR) {
       return make_error_code(errno);
     }
 #endif
-    auto stop = false;
     auto interrupted = false;
     for (size_type i = 0; i < count; i++) {
       auto& entry = events_data[i];
@@ -151,9 +164,6 @@ std::error_code service::run(std::size_t event_buffer_size) noexcept
     }
     if (interrupted) {
       process();
-    }
-    if (stop) {
-      break;
     }
   }
   return {};

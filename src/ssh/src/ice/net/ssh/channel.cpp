@@ -3,6 +3,9 @@
 
 namespace ice::net::ssh {
 
-channel::channel() {}
+void channel::close_type::operator()(LIBSSH2_CHANNEL* handle) noexcept
+{
+
+}
 
 }  // namespace ice::net::ssh

@@ -16,6 +16,10 @@ ice::log::task client(ice::net::service& service, ice::net::endpoint endpoint) n
     ice::log::error(ec, "could not connect to {}", endpoint);
     co_return;
   }
+  if (const auto ec = co_await session.authenticate("test", "test")) {
+    ice::log::error(ec, "could not connect to {}", endpoint);
+    co_return;
+  }
   ice::log::info("connecting to {} ...", endpoint);
   co_return;
 }
@@ -31,5 +35,7 @@ int main()
     return ice::log::error(ec, "could not create service");
   }
   client(service, endpoint);
-  service.run();
+  if (const auto ec = service.run()) {
+    return ice::log::notice(ec, "service run error");
+  }
 }

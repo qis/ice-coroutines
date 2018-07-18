@@ -1,10 +1,7 @@
 #include "ice/net/ssh/session.hpp"
-#include <ice/net/ssh/error.hpp>
 #include <ice/net/event.hpp>
+#include <ice/net/ssh/error.hpp>
 #include <libssh2.h>
-//#include <openssl/bio.h>
-//#include <openssl/evp.h>
-//#include <openssl/sha.h>
 
 #if ICE_OS_WIN32
 #  include <windows.h>
@@ -13,6 +10,8 @@
 #  include <sys/socket.h>
 #  include <sys/types.h>
 #endif
+
+#include <ice/log.hpp>
 
 namespace ice::net::ssh {
 namespace {
@@ -90,7 +89,15 @@ session& session::operator=(session&& other) noexcept
   return *this;
 }
 
-session::~session() = default;
+session::~session()
+{
+  if (connected_) {
+    [](session session) noexcept -> task {
+      co_await session.disconnect();
+      ice::log::debug("disconnect");
+    }(std::move(*this));
+  }
+}
 
 std::error_code session::create(int family) noexcept
 {
@@ -133,19 +140,45 @@ std::error_code session::create(int family) noexcept
 
 async<std::error_code> session::connect(net::endpoint endpoint) noexcept
 {
+  if (connected_) {
+    co_await disconnect();
+  }
   if (const auto ec = co_await socket_.connect(endpoint)) {
     co_return ec;
   }
-  co_return co_await loop(this, [&]() {
-    return libssh2_session_handshake(handle_, socket_.handle());
-  });
+  if (const auto ec = co_await loop(this, [&]() { return libssh2_session_handshake(handle_, socket_.handle()); })) {
+    co_return ec;
+  }
+  connected_ = true;
+  co_return{};
+}
+
+async<void> session::disconnect() noexcept
+{
+  connected_ = false;
+  co_await loop(this, [&]() { return libssh2_session_disconnect(handle_, "shutdown"); });
+  socket_.close();
+  co_return;
 }
 
 async<std::error_code> session::authenticate(std::string username, std::string password) noexcept
 {
-  return loop(this, [&]() {
-    return libssh2_userauth_password(handle_, username.data(), password.data());
-  });
+  return loop(this, [&]() { return libssh2_userauth_password(handle_, username.data(), password.data()); });
+}
+
+async<channel> session::open() noexcept
+{
+  while (true) {
+    const auto handle = libssh2_channel_open_session(handle_);
+    if (handle) {
+      co_return{ this, ssh::channel::handle_type{ handle } };
+    }
+    if (const auto rc = libssh2_session_last_error(handle_, nullptr, nullptr, 0); rc != LIBSSH2_ERROR_EAGAIN) {
+      break;
+    }
+    co_await io();
+  }
+  co_return{};
 }
 
 async<std::error_code> session::io() noexcept
