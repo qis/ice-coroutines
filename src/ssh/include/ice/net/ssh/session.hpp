@@ -45,11 +45,11 @@ public:
   std::error_code create(int family) noexcept;
 
   async<std::error_code> connect(net::endpoint endpoint) noexcept;
-  async<void> disconnect() noexcept;
+  async<std::error_code> disconnect() noexcept;
 
   async<std::error_code> authenticate(std::string username, std::string password) noexcept;
 
-  async<channel> open() noexcept;
+  async<channel> open(std::error_code& ec) noexcept;
 
   async<std::error_code> io() noexcept;
 

@@ -138,12 +138,12 @@ async<std::error_code> session::connect(net::endpoint endpoint) noexcept
   co_return{};
 }
 
-async<void> session::disconnect() noexcept
+async<std::error_code> session::disconnect() noexcept
 {
+  const auto ec = co_await loop(this, [&]() { return libssh2_session_disconnect(handle_, "shutdown"); });
   connected_ = false;
-  co_await loop(this, [&]() { return libssh2_session_disconnect(handle_, "shutdown"); });
   socket_.close();
-  co_return;
+  co_return ec;
 }
 
 async<std::error_code> session::authenticate(std::string username, std::string password) noexcept
@@ -157,7 +157,7 @@ async<std::error_code> session::authenticate(std::string username, std::string p
   });
 }
 
-async<channel> session::open() noexcept
+async<channel> session::open(std::error_code& ec) noexcept
 {
   while (true) {
     const auto handle = libssh2_channel_open_session(handle_);
@@ -165,6 +165,7 @@ async<channel> session::open() noexcept
       co_return{ this, ssh::channel::handle_type{ handle } };
     }
     if (const auto rc = libssh2_session_last_error(handle_, nullptr, nullptr, 0); rc != LIBSSH2_ERROR_EAGAIN) {
+      ec = make_error_code(rc, domain_category());
       break;
     }
     co_await io();

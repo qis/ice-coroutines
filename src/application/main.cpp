@@ -12,6 +12,7 @@ ice::log::task client(ice::net::service& service, ice::net::endpoint endpoint) n
     ice::log::error(ec, "could not create ssh session");
     co_return;
   }
+#if 0
   ice::log::info("connecting to {} ...", endpoint);
   if (const auto ec = co_await session.connect(endpoint)) {
     ice::log::error(ec, "connection failed");
@@ -46,6 +47,7 @@ ice::log::task client(ice::net::service& service, ice::net::endpoint endpoint) n
     }
     ice::log::info(std::string{ buffer.data(), size });
   }
+#endif
   ice::log::info("done");
   co_return;
 }
