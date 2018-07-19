@@ -26,13 +26,15 @@ ice::log::task client(ice::net::service& service, ice::net::endpoint endpoint) n
     ice::log::error("could not open channel");
     co_return;
   }
-  if (const auto ec = co_await channel.exec("/bin/ls")) {
+  std::error_code ec;
+  const auto code = co_await channel.exec("ls /", ec);
+  if (ec) {
     ice::log::error(ec, "could not execute 'ls'");
     co_return;
   }
+  ice::log::info("'ls' returned {}", code);
   std::string buffer;
   buffer.resize(1024);
-  std::error_code ec;
   while (true) {
     const auto size = co_await channel.recv(stdout, buffer.data(), buffer.size(), ec);
     if (ec) {

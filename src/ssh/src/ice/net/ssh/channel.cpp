@@ -2,6 +2,7 @@
 #include <ice/net/ssh/error.hpp>
 #include <ice/net/ssh/loop.hpp>
 #include <libssh2.h>
+#include <cstdlib>
 
 #if ICE_DEBUG
 #  include <ice/log.hpp>
@@ -32,10 +33,11 @@ async<std::error_code> channel::close() noexcept
   co_return ec;
 }
 
-async<std::error_code> channel::exec(std::string command) noexcept
+async<int> channel::exec(std::string command, std::error_code& ec) noexcept
 {
-  return loop(
+  ec = co_await loop(
     session_, [this, command = std::move(command)]() { return libssh2_channel_exec(handle_, command.data()); });
+  co_return ec ? EXIT_FAILURE : libssh2_channel_get_exit_status(handle_);
 }
 
 async<std::size_t> channel::recv(FILE* stream, char* data, std::size_t size, std::error_code& ec) noexcept
