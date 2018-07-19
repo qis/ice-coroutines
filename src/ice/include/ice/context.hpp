@@ -39,9 +39,9 @@ public:
     return index_.get() ? true : false;
   }
 
-  void stop() noexcept
+  void stop(bool stop = true) noexcept
   {
-    stop_.store(true, std::memory_order_release);
+    stop_.store(stop, std::memory_order_release);
     cv_.notify_all();
   }
 

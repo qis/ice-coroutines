@@ -100,22 +100,22 @@ std::error_code service::run(std::size_t event_buffer_size) noexcept
   using size_type = int;
 #endif
 
-  auto stop = false;
   std::vector<data_type> events;
   events.resize(event_buffer_size);
 
   const auto index = index_.set(this);
   const auto events_data = events.data();
   const auto events_size = static_cast<size_type>(events.size());
+  auto stop = stop_.load(std::memory_order_acquire);
 
 #if ICE_OS_FREEBSD
-  const timespec ts = {};
+  const timespec ts = { 0, 1000000 };
 #endif
 
   while (true) {
 #if ICE_OS_WIN32
     size_type count = 0;
-    const DWORD timeout = stop ? 0 : INFINITE;
+    const DWORD timeout = stop ? 1 : INFINITE;
     if (!::GetQueuedCompletionStatusEx(handle_.as<HANDLE>(), events_data, events_size, &count, timeout, FALSE)) {
       if (const auto rc = ::GetLastError(); rc != ERROR_ABANDONED_WAIT_0 && rc != WAIT_TIMEOUT) {
         return make_error_code(rc);
@@ -123,7 +123,7 @@ std::error_code service::run(std::size_t event_buffer_size) noexcept
       break;
     }
 #elif ICE_OS_LINUX
-    const auto timeout = stop ? 0 : -1;
+    const auto timeout = stop ? 1 : -1;
     const auto count = ::epoll_wait(handle_, events_data, events_size, timeout);
     if (count < 0 && errno != EINTR) {
       return make_error_code(errno);
@@ -139,6 +139,7 @@ std::error_code service::run(std::size_t event_buffer_size) noexcept
     if (count < 0 && errno != EINTR) {
       return make_error_code(errno);
     }
+    // TODO: Handle timeout exit condition similar to epoll when clang stops crashing on FreeBSD.
 #endif
     auto interrupted = false;
     for (size_type i = 0; i < count; i++) {

@@ -29,9 +29,9 @@ public:
     return index_.get() ? true : false;
   }
 
-  std::error_code stop() noexcept
+  std::error_code stop(bool stop = true) noexcept
   {
-    stop_.store(true, std::memory_order_release);
+    stop_.store(stop, std::memory_order_release);
     return interrupt();
   }
 

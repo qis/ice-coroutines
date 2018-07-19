@@ -11,8 +11,6 @@
 #  include <sys/types.h>
 #endif
 
-#include <ice/log.hpp>
-
 namespace ice::net::ssh {
 namespace {
 
@@ -92,10 +90,11 @@ session& session::operator=(session&& other) noexcept
 session::~session()
 {
   if (connected_) {
-    [](session session) noexcept -> task {
+    [](session session) noexcept->task
+    {
       co_await session.disconnect();
-      ice::log::debug("disconnect");
-    }(std::move(*this));
+    }
+    (std::move(*this));
   }
 }
 
@@ -129,10 +128,10 @@ std::error_code session::create(int family) noexcept
   if (const auto rv = libssh2_session_flag(handle, LIBSSH2_FLAG_COMPRESS, 1)) {
     return make_error_code(rv, domain_category());
   }
-  *libssh2_session_abstract(handle) = this;
+  libssh2_session_set_blocking(handle, 0);
   libssh2_session_callback_set(handle, LIBSSH2_CALLBACK_RECV, reinterpret_cast<void*>(&recv_callback));
   libssh2_session_callback_set(handle, LIBSSH2_CALLBACK_SEND, reinterpret_cast<void*>(&send_callback));
-  libssh2_session_set_blocking(handle, 0);
+  *libssh2_session_abstract(handle) = this;
   handle_ = std::move(handle);
   socket_ = std::move(socket);
   return {};
@@ -163,7 +162,13 @@ async<void> session::disconnect() noexcept
 
 async<std::error_code> session::authenticate(std::string username, std::string password) noexcept
 {
-  return loop(this, [&]() { return libssh2_userauth_password(handle_, username.data(), password.data()); });
+  return loop(this, [this, username = std::move(username), password = std::move(password)]() {
+    const auto udata = username.data();
+    const auto usize = static_cast<unsigned int>(username.size());
+    const auto pdata = password.data();
+    const auto psize = static_cast<unsigned int>(password.size());
+    return libssh2_userauth_password_ex(handle_, udata, usize, pdata, psize, nullptr);
+  });
 }
 
 async<channel> session::open() noexcept
@@ -188,7 +193,7 @@ async<std::error_code> session::io() noexcept
   switch (operation_) {
   case operation::recv: size_ = co_await socket_.recv(storage_.data(), size_); break;
   case operation::send: size_ = co_await socket_.send(storage_.data(), size_); break;
-  default: ec = make_error_code(std::errc::invalid_argument);
+  default: ec = make_error_code(std::errc::invalid_argument); break;
   }
   if (!size_ && !ec) {
     ec = make_error_code(errc::eof);

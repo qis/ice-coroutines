@@ -43,6 +43,7 @@ public:
   async<void> disconnect() noexcept;
 
   async<std::error_code> authenticate(std::string username, std::string password) noexcept;
+
   async<channel> open() noexcept;
 
   async<std::error_code> io() noexcept;
