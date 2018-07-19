@@ -146,7 +146,7 @@ async<std::error_code> socket::connect(const endpoint& endpoint) noexcept
   }
   event ev;
   if (connect(client_socket, &endpoint.sockaddr(), endpoint.size(), nullptr, 0, nullptr, &ev)) {
-    co_return std::error_code{};
+    co_return{};
   }
   if (const auto rc = ::WSAGetLastError(); rc != ERROR_IO_PENDING) {
     co_return make_error_code(rc);
@@ -156,7 +156,7 @@ async<std::error_code> socket::connect(const endpoint& endpoint) noexcept
   if (!::GetOverlappedResult(client_handle, &ev, &bytes, FALSE)) {
     co_return make_error_code(::GetLastError());
   }
-  co_return std::error_code{};
+  co_return{};
 }
 
 async<std::size_t> socket::recv(char* data, std::size_t size) noexcept
@@ -171,11 +171,11 @@ async<std::size_t> socket::recv(char* data, std::size_t size) noexcept
     co_return bytes;
   }
   if (::WSAGetLastError() != ERROR_IO_PENDING) {
-    co_return 0;
+    co_return{};
   }
   co_await ev;
   if (!::GetOverlappedResult(handle, &ev, &bytes, FALSE)) {
-    co_return 0;
+    co_return{};
   }
   co_return bytes;
 }
@@ -234,7 +234,7 @@ async<std::error_code> socket::connect(const endpoint& endpoint) noexcept
 {
   while (true) {
     if (::connect(handle(), &endpoint.sockaddr(), endpoint.size()) == 0) {
-      co_return std::error_code{};
+      co_return{};
     }
 #  if ICE_OS_LINUX
     if (errno == EINTR) {
@@ -261,7 +261,7 @@ async<std::error_code> socket::connect(const endpoint& endpoint) noexcept
     }
     break;
   }
-  co_return std::error_code{};
+  co_return{};
 }
 
 async<std::size_t> socket::recv(char* data, std::size_t size) noexcept
@@ -274,13 +274,13 @@ async<std::size_t> socket::recv(char* data, std::size_t size) noexcept
       continue;
     }
     if (errno != EAGAIN) {
-      co_return std::size_t{};
+      break;
     }
     if (co_await event{ service(), handle(), ICE_EVENT_RECV }) {
-      co_return std::size_t{};
+      break;
     }
   }
-  co_return std::size_t{};
+  co_return{};
 }
 
 async<std::size_t> socket::send(const char* data, std::size_t size) noexcept

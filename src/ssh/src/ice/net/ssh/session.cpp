@@ -1,6 +1,7 @@
 #include "ice/net/ssh/session.hpp"
 #include <ice/net/event.hpp>
 #include <ice/net/ssh/error.hpp>
+#include <ice/net/ssh/loop.hpp>
 #include <libssh2.h>
 
 #if ICE_OS_WIN32
@@ -9,6 +10,10 @@
 #else
 #  include <sys/socket.h>
 #  include <sys/types.h>
+#endif
+
+#if ICE_DEBUG
+#  include <ice/log.hpp>
 #endif
 
 namespace ice::net::ssh {
@@ -36,29 +41,11 @@ static LIBSSH2_SEND_FUNC(send_callback)
   return on_send(*reinterpret_cast<session*>(*abstract), data, size, flags);
 }
 
-template <typename Function>
-inline async<std::error_code> loop(session* session, Function function) noexcept
-{
-  while (true) {
-    const auto rv = function();
-    if (rv == LIBSSH2_ERROR_NONE) {
-      break;
-    }
-    if (rv != LIBSSH2_ERROR_EAGAIN) {
-      co_return make_error_code(rv, domain_category());
-    }
-    co_await session->io();
-  }
-  co_return{};
-}
-
 }  // namespace
 
 void session::close_type::operator()(LIBSSH2_SESSION* handle) noexcept
 {
   libssh2_session_set_blocking(handle, 1);
-  libssh2_session_callback_set(handle, LIBSSH2_CALLBACK_RECV, nullptr);
-  libssh2_session_callback_set(handle, LIBSSH2_CALLBACK_SEND, nullptr);
   libssh2_session_free(handle);
 }
 
@@ -103,8 +90,8 @@ std::error_code session::create(int family) noexcept
   struct library {
     library()
     {
-      if (const auto rv = libssh2_init(0)) {
-        ec = make_error_code(rv, domain_category());
+      if (const auto rc = libssh2_init(0)) {
+        ec = make_error_code(rc, domain_category());
       }
     }
     ~library()
@@ -121,17 +108,16 @@ std::error_code session::create(int family) noexcept
   if (const auto ec = socket.create(family)) {
     return ec;
   }
-  handle_type handle(libssh2_session_init());
+  handle_type handle{ libssh2_session_init_ex(nullptr, nullptr, nullptr, this) };
   if (!handle) {
     return make_error_code(LIBSSH2_ERROR_ALLOC, domain_category());
   }
-  if (const auto rv = libssh2_session_flag(handle, LIBSSH2_FLAG_COMPRESS, 1)) {
-    return make_error_code(rv, domain_category());
+  if (const auto rc = libssh2_session_flag(handle, LIBSSH2_FLAG_COMPRESS, 1)) {
+    return make_error_code(rc, domain_category());
   }
-  libssh2_session_set_blocking(handle, 0);
   libssh2_session_callback_set(handle, LIBSSH2_CALLBACK_RECV, reinterpret_cast<void*>(&recv_callback));
   libssh2_session_callback_set(handle, LIBSSH2_CALLBACK_SEND, reinterpret_cast<void*>(&send_callback));
-  *libssh2_session_abstract(handle) = this;
+  libssh2_session_set_blocking(handle, 0);
   handle_ = std::move(handle);
   socket_ = std::move(socket);
   return {};

@@ -12,15 +12,39 @@ ice::log::task client(ice::net::service& service, ice::net::endpoint endpoint) n
     ice::log::error(ec, "could not create ssh session");
     co_return;
   }
+  ice::log::info("connecting to {} ...", endpoint);
   if (const auto ec = co_await session.connect(endpoint)) {
-    ice::log::error(ec, "could not connect to {}", endpoint);
+    ice::log::error(ec, "connection failed");
     co_return;
   }
   if (const auto ec = co_await session.authenticate("test", "test")) {
-    ice::log::error(ec, "could not connect to {}", endpoint);
+    ice::log::error(ec, "username/password authentication failed");
     co_return;
   }
-  ice::log::info("connecting to {} ...", endpoint);
+  auto channel = co_await session.open();
+  if (!channel) {
+    ice::log::error("could not open channel");
+    co_return;
+  }
+  if (const auto ec = co_await channel.exec("/bin/ls")) {
+    ice::log::error(ec, "could not execute 'ls'");
+    co_return;
+  }
+  std::string buffer;
+  buffer.resize(1024);
+  std::error_code ec;
+  while (true) {
+    const auto size = co_await channel.recv(stdout, buffer.data(), buffer.size(), ec);
+    if (ec) {
+      ice::log::error(ec, "recv: {}", size);
+      co_return;
+    }
+    if (!size) {
+      break;
+    }
+    ice::log::info(std::string{ buffer.data(), size });
+  }
+  ice::log::info("done");
   co_return;
 }
 

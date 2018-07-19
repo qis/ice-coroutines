@@ -37,6 +37,11 @@ public:
 
   ~session();
 
+  explicit operator bool() const noexcept
+  {
+    return socket_ && handle_;
+  }
+
   std::error_code create(int family) noexcept;
 
   async<std::error_code> connect(net::endpoint endpoint) noexcept;

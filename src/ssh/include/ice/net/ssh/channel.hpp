@@ -3,6 +3,7 @@
 #include <ice/config.hpp>
 #include <ice/handle.hpp>
 #include <ice/net/ssh/types.hpp>
+#include <cstdio>
 
 namespace ice::net::ssh {
 
@@ -24,7 +25,19 @@ public:
   channel& operator=(channel&& other) = default;
   channel& operator=(const channel& other) = delete;
 
-  ~channel() = default;
+  ~channel();
+
+  explicit operator bool() const noexcept
+  {
+    return session_ && handle_;
+  }
+
+  async<std::error_code> close() noexcept;
+
+  async<std::error_code> exec(std::string command) noexcept;
+
+  async<std::size_t> recv(FILE* stream, char* data, std::size_t size, std::error_code& ec) noexcept;
+  async<std::size_t> send(FILE* stream, const char* data, std::size_t size, std::error_code& ec) noexcept;
 
 private:
   session* session_ = nullptr;

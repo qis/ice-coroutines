@@ -18,6 +18,8 @@
 #  include <unistd.h>
 #endif
 
+#include <ice/log.hpp>
+
 namespace ice::net {
 
 #if ICE_OS_WIN32
@@ -122,24 +124,22 @@ std::error_code service::run(std::size_t event_buffer_size) noexcept
       }
       break;
     }
-#elif ICE_OS_LINUX
+#else
+#  if ICE_OS_LINUX
     const auto timeout = stop ? 1 : -1;
     const auto count = ::epoll_wait(handle_, events_data, events_size, timeout);
-    if (count < 0 && errno != EINTR) {
-      return make_error_code(errno);
-    } else if (count == 0) {
-      if (errno != EAGAIN) {
-        return make_error_code(errno);
-      }
-      break;
-    }
-#elif ICE_OS_FREEBSD
+#  elif ICE_OS_FREEBSD
     const auto timeout = stop ? &ts : nullptr;
     const auto count = ::kevent(handle_, nullptr, 0, events_data, events_size, timeout);
-    if (count < 0 && errno != EINTR) {
-      return make_error_code(errno);
+#  endif
+    if (count <= 0) {
+      if (count < 0 && errno != EINTR) {
+        return make_error_code(errno);
+      }
+      if (stop_.load(std::memory_order_acquire)) {
+        break;
+      }
     }
-    // TODO: Handle timeout exit condition similar to epoll when clang stops crashing on FreeBSD.
 #endif
     auto interrupted = false;
     for (size_type i = 0; i < count; i++) {
