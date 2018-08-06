@@ -102,7 +102,7 @@ public:
   result(Args&&... args) noexcept(std::is_nothrow_constructible_v<T, Args&&...>) : storage_(std::forward<Args>(args)...)
   {}
 
-  explicit result(error_type error) noexcept : storage_(error) {}
+  result(error_type error) noexcept : storage_(error) {}
 
   result(result&& other) = default;
   result(const result& other) = default;
@@ -219,7 +219,7 @@ public:
   using error_type = std::error_code;
 
   result() noexcept = default;
-  explicit result(error_type error) noexcept : error_(error) {}
+  result(error_type error) noexcept : error_(error) {}
 
   result(result&& other) = default;
   result(const result& other) = default;
