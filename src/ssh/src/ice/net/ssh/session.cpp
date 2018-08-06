@@ -178,8 +178,8 @@ async<std::error_code> session::io() noexcept
   std::error_code ec;
 #if ICE_OS_WIN32
   switch (operation_) {
-  case operation::recv: size_ = co_await socket_.recv(storage_.data(), size_); break;
-  case operation::send: size_ = co_await socket_.send(storage_.data(), size_); break;
+  case operation::recv: size_ = co_await socket_.recv(storage_.data(), size_, ec); break;
+  case operation::send: size_ = co_await socket_.send(storage_.data(), size_, ec); break;
   default: ec = make_error_code(std::errc::invalid_argument); break;
   }
   if (!size_ && !ec) {

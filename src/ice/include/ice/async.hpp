@@ -22,6 +22,7 @@
 
 #pragma once
 #include <ice/config.hpp>
+#include <ice/result.hpp>
 #include <atomic>
 #include <experimental/coroutine>
 #include <iterator>
@@ -1231,5 +1232,8 @@ inline bool async_mutex_lock_operation::await_suspend(std::experimental::corouti
     }
   }
 }
+
+template <typename T>
+using async_result = async<result<T>>;
 
 }  // namespace ice

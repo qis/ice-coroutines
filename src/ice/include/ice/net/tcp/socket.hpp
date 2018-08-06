@@ -18,8 +18,8 @@ public:
 
   async<socket> accept(endpoint& endpoint) noexcept;
   async<std::error_code> connect(const endpoint& endpoint) noexcept;
-  async<std::size_t> recv(char* data, std::size_t size) noexcept;
-  async<std::size_t> send(const char* data, std::size_t size) noexcept;
+  async<std::size_t> recv(char* data, std::size_t size, std::error_code& ec) noexcept;
+  async<std::size_t> send(const char* data, std::size_t size, std::error_code& ec) noexcept;
 };
 
 }  // namespace ice::net::tcp

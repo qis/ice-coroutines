@@ -159,8 +159,9 @@ async<std::error_code> socket::connect(const endpoint& endpoint) noexcept
   co_return{};
 }
 
-async<std::size_t> socket::recv(char* data, std::size_t size) noexcept
+async<std::size_t> socket::recv(char* data, std::size_t size, std::error_code& ec) noexcept
 {
+  ec.clear();
   const auto handle = handle_.as<HANDLE>();
   const auto socket = handle_.as<SOCKET>();
   WSABUF buffer = { static_cast<ULONG>(size), data };
@@ -170,18 +171,21 @@ async<std::size_t> socket::recv(char* data, std::size_t size) noexcept
   if (::WSARecv(socket, &buffer, 1, &bytes, &flags, &ev, nullptr) != SOCKET_ERROR) {
     co_return bytes;
   }
-  if (::WSAGetLastError() != ERROR_IO_PENDING) {
+  if (const auto rc = ::WSAGetLastError(); rc != ERROR_IO_PENDING) {
+    ec = make_error_code(rc);
     co_return{};
   }
   co_await ev;
   if (!::GetOverlappedResult(handle, &ev, &bytes, FALSE)) {
+    ec = make_error_code(::WSAGetLastError());
     co_return{};
   }
   co_return bytes;
 }
 
-async<std::size_t> socket::send(const char* data, std::size_t size) noexcept
+async<std::size_t> socket::send(const char* data, std::size_t size, std::error_code& ec) noexcept
 {
+  ec.clear();
   const auto handle = handle_.as<HANDLE>();
   const auto socket = handle_.as<SOCKET>();
   WSABUF buffer = { static_cast<ULONG>(size), const_cast<char*>(data) };
@@ -189,11 +193,13 @@ async<std::size_t> socket::send(const char* data, std::size_t size) noexcept
   do {
     event ev;
     if (::WSASend(socket, &buffer, 1, &bytes, 0, &ev, nullptr) == SOCKET_ERROR) {
-      if (::WSAGetLastError() != ERROR_IO_PENDING) {
+      if (const auto rc = ::WSAGetLastError(); rc != ERROR_IO_PENDING) {
+        ec = make_error_code(rc);
         break;
       }
       co_await ev;
       if (!::GetOverlappedResult(handle, &ev, &bytes, FALSE)) {
+        ec = make_error_code(::WSAGetLastError());
         break;
       }
     }
@@ -264,8 +270,9 @@ async<std::error_code> socket::connect(const endpoint& endpoint) noexcept
   co_return{};
 }
 
-async<std::size_t> socket::recv(char* data, std::size_t size) noexcept
+async<std::size_t> socket::recv(char* data, std::size_t size, std::error_code& ec) noexcept
 {
+  ec.clear();
   while (true) {
     if (const auto rc = ::read(handle(), data, size); rc >= 0) {
       co_return static_cast<std::size_t>(rc);
@@ -274,17 +281,20 @@ async<std::size_t> socket::recv(char* data, std::size_t size) noexcept
       continue;
     }
     if (errno != EAGAIN) {
+      ec = make_error_code(errno);
       break;
     }
-    if (co_await event{ service(), handle(), ICE_EVENT_RECV }) {
+    if (const auto rc = co_await event{ service(), handle(), ICE_EVENT_RECV }) {
+      ec = rc;
       break;
     }
   }
   co_return{};
 }
 
-async<std::size_t> socket::send(const char* data, std::size_t size) noexcept
+async<std::size_t> socket::send(const char* data, std::size_t size, std::error_code& ec) noexcept
 {
+  ec.clear();
   const auto data_size = size;
   do {
     if (const auto rc = ::write(handle(), data, size); rc > 0) {
@@ -297,9 +307,11 @@ async<std::size_t> socket::send(const char* data, std::size_t size) noexcept
       continue;
     }
     if (errno != EAGAIN) {
+      ec = make_error_code(errno);
       break;
     }
-    if (co_await event{ service(), handle(), ICE_EVENT_SEND }) {
+    if (const auto rc = co_await event{ service(), handle(), ICE_EVENT_SEND }) {
+      ec = rc;
       break;
     }
   } while (size > 0);
