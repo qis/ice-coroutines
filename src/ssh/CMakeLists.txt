@@ -18,26 +18,6 @@ target_include_directories(ssh PRIVATE src PUBLIC
 
 target_link_libraries(ssh PUBLIC ice::ice)
 
-#find_path(ICE_LIBSSH_INCLUDE libssh/libssh.h)
-#if(NOT ICE_LIBSSH_INCLUDE)
-#  message(FATAL_ERROR "Missing header file: libssh/libssh.h")
-#endif()
-#
-#find_library(ICE_LIBSSH_RELEASE NAMES ssh PATHS ${ICE_LIBSSH_INCLUDE}/../lib NO_DEFAULT_PATH)
-#if(NOT ICE_LIBSSH_RELEASE)
-#  message(FATAL_ERROR "Missing vcpkg library: ssh (release)")
-#endif()
-#
-#find_library(ICE_LIBSSH_DEBUG NAMES ssh PATHS ${ICE_LIBSSH_INCLUDE}/../debug/lib NO_DEFAULT_PATH)
-#if(NOT ICE_LIBSSH_DEBUG)
-#  message(FATAL_ERROR "Missing vcpkg library: ssh (debug)")
-#endif()
-#
-#target_include_directories(ssh PUBLIC ${ICE_LIBSSH_INCLUDE})
-#target_link_libraries(ssh PUBLIC
-#  $<$<NOT:$<CONFIG:DEBUG>>:${ICE_LIBSSH_RELEASE}>
-#  $<$<CONFIG:DEBUG>:${ICE_LIBSSH_DEBUG}>)
-
 find_package(Libssh2 CONFIG REQUIRED)
 target_link_libraries(ssh PUBLIC Libssh2::libssh2)
 

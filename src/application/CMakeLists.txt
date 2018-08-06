@@ -7,7 +7,7 @@ file(GLOB_RECURSE sources CONFIGURE_DEPENDS *.hpp *.cpp)
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} PREFIX "src" FILES ${sources})
 
 add_executable(application ${sources})
-target_link_libraries(application PUBLIC ice::ssh)
+target_link_libraries(application PUBLIC ice::ice ice::serial ice::ssh)
 set_target_properties(application PROPERTIES OUTPUT_NAME ice)
 set_target_properties(application PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 
