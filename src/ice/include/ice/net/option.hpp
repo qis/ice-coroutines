@@ -7,6 +7,13 @@
 #include <type_traits>
 #include <cstddef>
 
+// NOTE: On Windows, SO_RCVTIMEO and SO_SNDTIMEO are not supported by IOCP sockets.
+// TODO: See if this works on Linux and FreeBSD. Use IOCP to simulate this behavior on Windows.
+
+//#if !ICE_OS_WIN32
+//#  include <sys/time.h>
+//#endif
+
 namespace ice::net {
 
 class option {
@@ -16,6 +23,8 @@ public:
   class keep_alive;
   class linger;
   class no_delay;
+  //class recv_timeout;
+  //class send_timeout;
   class recv_buffer_size;
   class send_buffer_size;
   class recv_low_watermark;
@@ -119,6 +128,59 @@ protected:
   int value_ = 0;
 };
 
+//template <>
+//class option_value<std::chrono::microseconds> : public option {
+//public:
+//  option_value(std::chrono::microseconds value = std::chrono::microseconds{ 0 }) noexcept
+//  {
+//#if ICE_OS_WIN32
+//    if (value > std::chrono::microseconds{ 0 } && value < std::chrono::milliseconds{ 1 }) {
+//      value_ = 1;
+//    } else {
+//      value_ = static_cast<unsigned long>(std::chrono::floor<std::chrono::milliseconds>(value).count());
+//    }
+//#else
+//    const auto s = std::chrono::floor<std::chrono::seconds>(value);
+//    const auto us = std::chrono::duration_cast<std::chrono::milliseconds>(value - s);
+//    value_.tv_sec = static_cast<decltype(value_.tv_sec)>(s.count());
+//    value_.tv_usec = static_cast<decltype(value_.tv_usec)>(us.count());
+//#endif
+//    size_ = capacity();
+//  }
+//
+//  std::chrono::microseconds get() const noexcept
+//  {
+//#if ICE_OS_WIN32
+//    return std::chrono::milliseconds{ value_ };
+//#else
+//    const auto s = std::chrono::seconds{ value_.tv_sec };
+//    return s + std::chrono::microseconds{ value_.rv_usec };
+//#endif
+//  }
+//
+//  void* data() noexcept override
+//  {
+//    return &value_;
+//  }
+//
+//  const void* data() const noexcept override
+//  {
+//    return &value_;
+//  }
+//
+//  socklen_t capacity() const noexcept override
+//  {
+//    return sizeof(value_);
+//  }
+//
+//protected:
+//#if ICE_OS_WIN32
+//  unsigned long value_ = 0;
+//#else
+//  struct timeval value_ = {};
+//#endif
+//};
+
 class option::broadcast : public option_value<bool> {
 public:
   using option_value::option_value;
@@ -177,6 +239,18 @@ public:
   int level() const noexcept override;
   int name() const noexcept override;
 };
+
+//class option::recv_timeout : public option_value<std::chrono::microseconds> {
+//public:
+//  using option_value::option_value;
+//  int name() const noexcept override;
+//};
+
+//class option::send_timeout : public option_value<std::chrono::microseconds> {
+//public:
+//  using option_value::option_value;
+//  int name() const noexcept override;
+//};
 
 class option::recv_buffer_size : public option_value<std::size_t> {
 public:

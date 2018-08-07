@@ -96,6 +96,16 @@ int option::no_delay::name() const noexcept
   return TCP_NODELAY;
 }
 
+//int option::recv_timeout::name() const noexcept
+//{
+//  return SO_RCVTIMEO;
+//}
+
+//int option::send_timeout::name() const noexcept
+//{
+//  return SO_SNDTIMEO;
+//}
+
 int option::recv_buffer_size::name() const noexcept
 {
   return SO_RCVBUF;

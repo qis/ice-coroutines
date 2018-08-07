@@ -35,7 +35,19 @@ public:
   async<std::error_code> close() noexcept;
 
   async<int> exec(std::string command, std::error_code& ec) noexcept;
+
+  async<std::size_t> recv(char* data, std::size_t size, std::error_code& ec) noexcept
+  {
+    return recv(stdout, data, size, ec);
+  }
+
   async<std::size_t> recv(FILE* stream, char* data, std::size_t size, std::error_code& ec) noexcept;
+
+  async<std::size_t> send(const char* data, std::size_t size, std::error_code& ec) noexcept
+  {
+    return send(stdout, data, size, ec);
+  }
+
   async<std::size_t> send(FILE* stream, const char* data, std::size_t size, std::error_code& ec) noexcept;
 
 private:

@@ -17,13 +17,13 @@ void channel::close_type::operator()(LIBSSH2_CHANNEL* handle) noexcept
 
 channel::~channel()
 {
-  if (session_ && handle_) {
-    [](channel channel) noexcept->task
-    {
-      co_await channel.close();
-    }
-    (std::move(*this));
-  }
+  //if (session_ && handle_) {
+  //  [](channel channel) noexcept->task
+  //  {
+  //    co_await channel.close();
+  //  }
+  //  (std::move(*this));
+  //}
 }
 
 async<std::error_code> channel::close() noexcept

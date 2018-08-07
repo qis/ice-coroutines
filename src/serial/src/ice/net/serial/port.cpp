@@ -82,7 +82,7 @@ std::error_code port::open(unsigned index) noexcept
   timeouts.ReadIntervalTimeout = 50;  // milliseconds
 
   // Time added to the product of ReadTotalTimeoutMultiplier and the requested number of bytes.
-  timeouts.ReadTotalTimeoutConstant = 720;  // milliseconds
+  timeouts.ReadTotalTimeoutConstant = 220;  // milliseconds
 
   // For each each read operation, this value is multiplied by the requested number of bytes to be read.
   timeouts.ReadTotalTimeoutMultiplier = 10;  // milliseconds
