@@ -26,18 +26,23 @@ public:
   }
 
   template <typename Handler>
-  handler(const std::string& regex, Handler&& handler, bool icase = false) :
+  handler(const std::string& regex, Handler&& handler) : handler(regex, false, std::forward<Handler>(handler))
+  {}
+
+  template <typename Handler>
+  handler(const std::string& regex, bool icase, Handler&& handler) :
     regex_(regex, std::regex_constants::ECMAScript | default_icase_flags(icase) | std::regex_constants::optimize),
     handler_(std::forward<Handler>(handler))
   {}
 
-  bool match(const std::string& string, std::smatch& sm, bool eol = true) const noexcept
+  bool match(const std::string& string, std::smatch& sm, bool eol) const noexcept
   {
     return std::regex_match(string, sm, regex_, default_eol_flags(eol) | std::regex_constants::match_not_null);
   }
 
   ice::async<State> handle(std::smatch& sm, std::error_code& ec) const
   {
+    ec.clear();
     co_return co_await handler_(sm, ec);
   }
 
@@ -52,31 +57,37 @@ public:
   regex_state_machine(State state) : state_(state) {}
 
   template <typename Handler>
-  void add(State state, const std::string& regex, Handler&& handler, bool icase = false)
+  void add(State state, const std::string& regex, Handler&& handler)
   {
-    handlers_[state].emplace_back(regex, std::forward<Handler>(handler), icase);
+    add(state, regex, false, std::forward<Handler>(handler));
   }
 
-  ice::async<std::error_code> handle(const std::string& string, bool eol = true) noexcept
+  template <typename Handler>
+  void add(State state, const std::string& regex, bool icase, Handler&& handler)
   {
+    handlers_[state].emplace_back(regex, icase, std::forward<Handler>(handler));
+  }
+
+  ice::async<bool> handle(const std::string& string, bool eol, std::error_code& ec) noexcept
+  {
+    ec.clear();
     const auto handlers = handlers_.find(state_);
     if (handlers == handlers_.end()) {
       ice::log::warning("state without entry: {}", static_cast<int>(state_));
-      return {};
+      return false;
     }
     if (handlers->second.empty()) {
       ice::log::warning("state without handlers: {}", static_cast<int>(state_));
-      return {};
+      return false;
     }
     for (const auto& e : handlers->second) {
       std::smatch sm;
       if (e.match(string, sm, eol)) {
-        std::error_code ec;
         state_ = co_await e.handle(sm, ec);
-        return ec;
+        co_return true;
       }
     }
-    return {};
+    co_return false;
   }
 
   State state() const noexcept
@@ -99,55 +110,64 @@ public:
   enum class state {
     boot,
     login,
+    done,
   };
+
+  using async_state = ice::async<state>;
 
   config(ice::net::service& service) noexcept : port_(service)
   {
     // Cisco BootLoader Version : 8.5.103.0 (Cisco build) (Build time: Jul 25 2017 - 07:47:10)
-    rsm_.add(
-      state::boot, ".*BootLoader Version :\\s*([0-9\\.]*).*",
-      [&](std::smatch& sm, std::error_code& ec) -> ice::async<state> {
-        ice::log::notice("boot loader version: {}", sm[1].str());
-        // TODO: Save version string.
-        co_return state::boot;
-      },
-      true);
+    rsm_.add(state::boot, ".*BootLoader Version :\\s*([0-9\\.]*).*", [&](auto& sm, auto& ec) -> async_state {
+      version_.bootloader = sm[1].str();
+      co_return state::boot;
+    });
 
     // Loading primary image (8.5.105.0)
-    rsm_.add(
-      state::boot, ".*Loading primary image \\(([^\\)]*).*",
-      [&](std::smatch& sm, std::error_code& ec) -> ice::async<state> {
-        ice::log::notice("primary image version: {}", sm[1].str());
-        // TODO: Save version string.
-        co_return state::boot;
-      },
-      true);
+    rsm_.add(state::boot, ".*Loading primary image \\(([^\\)]*).*", [&](auto& sm, auto& ec) -> async_state {
+      version_.primary_image = sm[1].str();
+      co_return state::boot;
+    });
 
     // User:
-    rsm_.add(
-      state::boot, "\\s*User\\s*:\\s*",
-      [&](std::smatch& sm, std::error_code& ec) -> ice::async<state> {
-        ice::log::notice("User:");
-        // TODO: Perform login operation.
-        co_return state::login;
-      },
-      true);
+    rsm_.add(state::boot, "\\s*User\\s*:\\s*", [&](auto& sm, auto& ec) -> async_state {
+      ec = co_await exec("admin");  // 'admin' or 'Recover-Config'
+      co_return state::login;
+    });
   }
 
-  ice::async<std::error_code> run(unsigned index) noexcept
+  ice::async<std::error_code> exec(std::string_view command = {}) noexcept
+  {
+    std::error_code ec;
+    if (!command.empty()) {
+      co_await ice::send(port_, command, ec);
+      if (ec) {
+        co_return ec;
+      }
+    }
+    co_await ice::send(port_, "\r\n", ec);
+    co_return ec;
+  }
+
+  ice::async<std::error_code> run(unsigned index = 0) noexcept
   {
     if (const auto ec = port_.open(index)) {
-      ice::log::error(ec, "could not open serial port: COM{}", index);
+      ice::log::error(ec, "could not connect to serial port");
       co_return ec;
     }
 
+    co_await exec();
+    //co_await exec();
+
+    std::string line;
+    bool skip = false;
     std::string buffer;
     buffer.resize(128);
-    std::string line;
-    while (true) {
+
+    while (rsm_.state() != state::done) {
       // Read data from serial port.
       std::error_code ec;
-      const auto size = co_await port_.read(buffer.data(), buffer.size(), ec);
+      const auto size = co_await port_.recv(buffer.data(), buffer.size(), ec);
       if (ec) {
         ice::log::error(ec, "serial port read error");
         co_return ec;
@@ -155,7 +175,11 @@ public:
 
       // Append data to line.
       for (auto c : std::string_view{ buffer.data(), size }) {
-        if (c != '\r') {
+        if (skip) {
+          if (c == '\n') {
+            skip = false;
+          }
+        } else if (c != '\r') {
           line.push_back(c);
         }
       }
@@ -163,12 +187,15 @@ public:
       // Search for EOL and handle line.
       for (std::size_t i = 0, max = line.size(); i < max; i++) {
         while (line[i] == '\n') {
-          ec = co_await rsm_.handle(std::string(line.data(), i), true);
-          if (ec) {
-            if (ec != make_error_code(ice::errc::eof)) {
+          const std::string s{ line.data(), i };
+          if (co_await rsm_.handle(s, true, ec)) {
+            ice::log::info(s);
+            if (ec) {
               ice::log::error(ec, "handle error");
+              co_return ec;
             }
-            co_return ec;
+          } else {
+            ice::log::debug(s);
           }
           line.erase(0, i + 1);
           max = line.size();
@@ -182,18 +209,24 @@ public:
       }
 
       // Try to handle line on timeout.
-      ec = co_await rsm_.handle(line, false);
-      if (ec) {
-        if (ec == make_error_code(ice::errc::eof)) {
+      if (co_await rsm_.handle(line, false, ec)) {
+        ice::log::info(line);
+        if (ec) {
+          ice::log::error(ec, "handle error");
           co_return ec;
         }
-        continue;
+        skip = true;
       }
     }
     co_return{};
   }
 
 private:
+  struct version {
+    std::string bootloader;
+    std::string primary_image;
+  } version_;
+
   ice::net::serial::port port_;
   regex_state_machine<state> rsm_{ state::boot };
 };
@@ -209,7 +242,7 @@ int main()
   {
     const auto ose = ice::on_scope_exit([&]() { service.stop(); });
     config config{ service };
-    co_await config.run(3);
+    co_await config.run();
     ice::log::info("done");
   }
   ();

@@ -76,13 +76,14 @@ session& session::operator=(session&& other) noexcept
 
 session::~session()
 {
-  if (connected_) {
-    [](session session) noexcept->task
-    {
-      co_await session.disconnect();
-    }
-    (std::move(*this));
-  }
+  // Crashes MSVC. Just close the socket.
+  //if (connected_) {
+  //  [](session session) noexcept->task
+  //  {
+  //    co_await session.disconnect();
+  //  }
+  //  (std::move(*this));
+  //}
 }
 
 std::error_code session::create(int family) noexcept

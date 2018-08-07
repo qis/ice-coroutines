@@ -28,6 +28,7 @@
 #include <iterator>
 #include <memory>
 #include <mutex>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 #include <cassert>
@@ -1235,5 +1236,21 @@ inline bool async_mutex_lock_operation::await_suspend(std::experimental::corouti
 
 template <typename T>
 using async_result = async<result<T>>;
+
+template <typename Stream, typename Buffer>
+inline async<std::string_view> recv(Stream& stream, Buffer& buffer, std::error_code& ec) noexcept(
+  noexcept(stream.recv(std::data(buffer), std::size(buffer), ec)))
+{
+  const auto size = co_await stream.recv(std::data(buffer), std::size(buffer), ec);
+  co_return std::string_view{ std::data(buffer), size };
+}
+
+template <typename Stream, typename Buffer>
+inline async<bool> send(Stream& stream, const Buffer& buffer, std::error_code& ec) noexcept(
+  noexcept(stream.send(std::data(buffer), std::size(buffer), ec)))
+{
+  const auto size = co_await stream.send(std::data(buffer), std::size(buffer), ec);
+  co_return size == std::size(buffer);
+}
 
 }  // namespace ice

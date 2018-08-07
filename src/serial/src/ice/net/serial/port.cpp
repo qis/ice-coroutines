@@ -1,6 +1,8 @@
 #include "ice/net/serial/port.hpp"
 #include <ice/error.hpp>
+#include <ice/log.hpp>
 #include <ice/net/event.hpp>
+#include <regex>
 #include <string>
 
 #if ICE_OS_WIN32
@@ -18,6 +20,35 @@ void port::close_type::operator()(std::uintptr_t handle) noexcept
 
 std::error_code port::open(unsigned index) noexcept
 {
+  if (!index) {
+    std::string buffer;
+    DWORD size = 0;
+    DWORD code = 0;
+    do {
+      buffer.resize(buffer.size() + MAX_PATH);
+      size = ::QueryDosDevice(nullptr, buffer.data(), static_cast<DWORD>(buffer.size()));
+      if (!size) {
+        code = ::GetLastError();
+      }
+    } while (size == 0 && code == ERROR_INSUFFICIENT_BUFFER);
+    if (size == 0) {
+      return ice::make_error_code(code);
+    }
+    buffer.resize(size);
+    std::regex re{ "COM(\\d+)", std::regex_constants::ECMAScript | std::regex_constants::optimize };
+    for (std::size_t pos = 0; pos < buffer.size();) {
+      const auto device = std::string{ buffer.data() + pos, std::strlen(buffer.data() + pos) };
+      std::smatch sm;
+      if (std::regex_match(device, sm, re)) {
+        index = std::stoul(sm[1].str());
+        break;
+      }
+      pos += device.size() + 1;
+    }
+  }
+
+  ice::log::info("Connecting to COM{} ...", index);
+
   const auto name = std::string("\\\\.\\COM") + std::to_string(index);
   handle_type handle{ ::CreateFile(
     name.data(), GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, nullptr) };
@@ -70,7 +101,7 @@ std::error_code port::open(unsigned index) noexcept
   return {};
 }
 
-async<std::size_t> port::read(char* data, std::size_t size, std::error_code& ec) noexcept
+async<std::size_t> port::recv(char* data, std::size_t size, std::error_code& ec) noexcept
 {
   ec.clear();
   event ev;
@@ -91,7 +122,7 @@ async<std::size_t> port::read(char* data, std::size_t size, std::error_code& ec)
   co_return bytes;
 }
 
-async<std::size_t> port::write(const char* data, std::size_t size, std::error_code& ec) noexcept
+async<std::size_t> port::send(const char* data, std::size_t size, std::error_code& ec) noexcept
 {
   ec.clear();
   DWORD bytes = 0;
