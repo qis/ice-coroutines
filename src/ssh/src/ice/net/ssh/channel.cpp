@@ -33,6 +33,20 @@ async<std::error_code> channel::close() noexcept
   co_return ec;
 }
 
+async<std::error_code> channel::request_pty(std::string terminal) noexcept
+{
+  return loop(session_, [this, terminal = std::move(terminal)]() {
+    return libssh2_channel_request_pty(handle_, terminal.data());
+  });
+}
+
+async<std::error_code> channel::open_shell() noexcept
+{
+  return loop(session_, [this]() {
+    return libssh2_channel_shell(handle_);
+  });
+}
+
 async<int> channel::exec(std::string command, std::error_code& ec) noexcept
 {
   ec = co_await loop(

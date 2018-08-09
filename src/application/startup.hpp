@@ -285,11 +285,11 @@ public:
     // Password:
     sm_.add(state::login, "Password\\s*:\\s*", [&](auto& sm, auto& ec) -> async_state {
       ec = co_await exec(get_password(), true);
-      co_return state::boot;
+      co_return state::login;
     });
 
     // (Cisco Controller) >
-    sm_.add(state::boot, prompt, [&](auto& sm, auto& ec) -> async_state {
+    sm_.add(state::login, prompt, [&](auto& sm, auto& ec) -> async_state {
       ec = co_await exec("show inventory");
       co_return state::parse_inventory;
     });

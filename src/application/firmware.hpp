@@ -10,6 +10,7 @@ class firmware {
 public:
   enum class state {
     login,
+    parse_inventory,
     done,
   };
 
@@ -19,7 +20,67 @@ public:
 
   firmware(ice::net::service& service) noexcept :
     session_(service), sm_(state::login)
-  {}
+  {
+    constexpr auto prompt = "\\s*\\([^\\)]*\\)\\s>\\s*";
+
+    // ================================================================================================================
+
+    // User:
+    sm_.add(state::login, "User\\s*:\\s*", [&](auto& sm, auto& ec) -> async_state {
+      ec = co_await exec("admin");
+      co_return state::login;
+    });
+
+    // Password:
+    sm_.add(state::login, "Password\\s*:\\s*", [&](auto& sm, auto& ec) -> async_state {
+      ec = co_await exec(get_password(), true);
+      co_return state::login;
+    });
+
+    // (Cisco Controller) >
+    sm_.add(state::login, prompt, [&](auto& sm, auto& ec) -> async_state {
+      ec = co_await exec("show inventory");
+      co_return state::parse_inventory;
+    });
+
+    // Burned-in MAC Address............................ XX:XX:XX:XX:XX:XX
+    sm_.add(state::parse_inventory, "Burned-in MAC Address[.\\s]*([^\\s]+).*", [&](auto& sm, auto& ec) -> async_state {
+      info_.mac = sm[1].str();
+      ice::log::notice("MAC: {}", info_.mac);
+      co_return state::parse_inventory;
+    });
+
+    // Maximum number of APs supported.................. 150
+    sm_.add(state::parse_inventory, "Maximum number of APs supported[.\\s]*(\\d+).*", [&](auto& sm, auto& ec) -> async_state {
+      info_.max = std::stoul(sm[1].str());
+      ice::log::notice("Max clients: {}", info_.max);
+      co_return state::parse_inventory;
+    });
+
+    // DESCR: "Cisco 3500 Series Wireless LAN Controller"
+    sm_.add(state::parse_inventory, ".*DESCR: \"([^\"]*)\".*",
+      [&](auto& sm, auto& ec) -> async_state {
+      ice::log::notice("Description: {}", sm[1].str());
+      co_return state::parse_inventory;
+    }, false);
+
+    // PID: AIR-XXXXXX-XX
+    sm_.add(state::parse_inventory, ".*PID:\\s*([^\\s,]*).*", [&](auto& sm, auto& ec) -> async_state {
+      ice::log::notice("Product ID: {}", sm[1].str());
+      co_return state::parse_inventory;
+    }, false);
+
+    // SN: XXXXXXXXXXX
+    sm_.add(state::parse_inventory, ".*SN:\\s*([^\\s,]*).*", [&](auto& sm, auto& ec) -> async_state {
+      ice::log::notice("Serial Number: {}", sm[1].str());
+      co_return state::parse_inventory;
+    }, false);
+
+    // (Cisco Controller) >
+    sm_.add(state::parse_inventory, prompt, [&](auto& sm, auto& ec) -> async_state {
+      co_return state::done;
+    });
+  }
 
   // clang-format on
 
@@ -37,36 +98,51 @@ public:
         co_return ec;
       }
     }
-    co_await ice::send(channel_, "\r\n", ec);
+    co_await ice::send(channel_, "\r", ec);
     co_return ec;
   }
 
   ice::async<std::error_code> run(ice::net::endpoint endpoint) noexcept
   {
+    ice::log::debug("creating session ...");
     if (const auto ec = session_.create(endpoint.family())) {
       ice::log::error(ec, "could not create ssh session");
       co_return ec;
     }
-    ice::log::info("connecting to {} ...", endpoint);
+    ice::log::debug("connecting to {} ...", endpoint);
     if (const auto ec = co_await session_.connect(endpoint)) {
       ice::log::error(ec, "could not connect");
       co_return ec;
     }
-    ice::log::info("authenticating ...");
+    ice::log::debug("authenticating ...");
     if (const auto ec = co_await session_.authenticate("admin", get_password())) {
       ice::log::error(ec, "username/password authentication failed");
       co_return ec;
     }
-    ice::log::debug("ready");
-    std::error_code ec;
-    channel_ = co_await session_.open(ec);
-    if (!channel_) {
-      ice::log::error(ec, "could not open channel");
+    ice::log::debug("opening channel ...");
+    {
+      std::error_code ec;
+      channel_ = co_await session_.open(ec);
+      if (!channel_) {
+        ice::log::error(ec, "could not open channel");
+        co_return ec;
+      }
+    }
+    ice::log::debug("request pty ...");
+    if (const auto ec = co_await channel_.request_pty("vanilla")) {
+      ice::log::error(ec, "could not request pty");
       co_return ec;
     }
+    ice::log::debug("opening shell ...");
+    if (const auto ec = co_await channel_.open_shell()) {
+      ice::log::error(ec, "could not open shell");
+      co_return ec;
+    }
+    ice::log::debug("ready");
     std::string buffer;
     buffer.resize(128);
     while (sm_.state() != state::done) {
+      std::error_code ec;
       const auto size = co_await channel_.recv(buffer.data(), buffer.size(), ec);
       if (ec) {
         ice::log::error(ec, "ssh channel read error");
@@ -79,6 +155,12 @@ public:
       }
     }
     co_return{};
+  }
+
+  ice::async<void> close() noexcept
+  {
+    co_await channel_.close();
+    co_await session_.disconnect();
   }
 
 private:

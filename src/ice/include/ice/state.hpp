@@ -131,12 +131,18 @@ public:
     }
     lines_.clear();
 
-    // Resume if there was no timeout or the current line is empty.
-    if (size || line_.find_first_not_of(" \t\v\b\f\a") == std::string::npos) {
+    // Resume if there was no timeout or the current line is blank.
+    // NOTE: This does not work with streams that do not support timeouts for recv/send operations.
+    //if (size || line_.find_first_not_of(" \t\v\b\f\a") == std::string::npos) {
+    //  co_return{};
+    //}
+
+    // Resumt if the current line is blank.
+    if (line_.find_first_not_of(" \t\v\b\f\a") == std::string::npos) {
       co_return{};
     }
 
-    // Try to handle a partial line on timeout.
+    // Try to handle a partial line.
     std::error_code ec;
     if (co_await handle(line_, false, ec)) {
       if (ec) {

@@ -23,7 +23,6 @@ int main()
   }
 
   // clang-format off
-#if 0
 
   [&]() noexcept->ice::task {
     const auto ose = ice::on_scope_exit([&]() { service.stop(); });
@@ -37,55 +36,7 @@ int main()
     if (const auto ec = co_await firmware.run(endpoint)) {
       co_return;
     }
-  }();
-
-#endif
-
-  [&]() noexcept->ice::task {
-    const auto ose = ice::on_scope_exit([&]() { service.stop(); });
-
-    ice::net::endpoint endpoint;
-    if (const auto ec = endpoint.create("127.0.0.1", 9000)) {
-      ice::log::error(ec, "could not create endpoint");
-      co_return;
-    }
-
-    ice::net::tcp::socket socket{ service };
-    if (const auto ec = socket.create(endpoint.family())) {
-      ice::log::error(ec, "could not create socket");
-      co_return;
-    }
-
-    if (const auto ec = socket.set(ice::net::option::recv_timeout{ std::chrono::milliseconds{ 500 } })) {
-      ice::log::error(ec, "could not set recv timeout");
-      co_return;
-    }
-
-    if (const auto ec = socket.set(ice::net::option::send_timeout{ std::chrono::milliseconds{ 500 } })) {
-      ice::log::error(ec, "could not set send timeout");
-      co_return;
-    }
-
-    if (const auto ec = co_await socket.connect(endpoint)) {
-      ice::log::error(ec, "could not connect");
-      co_return;
-    }
-
-    std::error_code ec;
-    const auto send_size = co_await socket.send("test", 4, ec);
-    if (ec) {
-      ice::log::error(ec, "send error");
-      co_return;
-    }
-    std::string buffer;
-    buffer.resize(10);
-    const auto recv_size = co_await socket.recv(buffer.data(), buffer.size(), ec);
-    if (ec) {
-      ice::log::error(ec, "recv error");
-      co_return;
-    }
-    ice::log::info("recv: {}", std::string{ buffer.data(), recv_size });
-
+    co_await firmware.close();
   }();
 
   // clang-format on

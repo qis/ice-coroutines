@@ -132,12 +132,6 @@ async<std::error_code> session::connect(net::endpoint endpoint) noexcept
   if (const auto ec = co_await socket_.connect(endpoint)) {
     co_return ec;
   }
-  if (const auto ec = socket_.set(ice::net::option::recv_timeout{ std::chrono::milliseconds{ 500 } })) {
-    co_return ec;
-  }
-  if (const auto ec = socket_.set(ice::net::option::send_timeout{ std::chrono::milliseconds{ 5000 } })) {
-    co_return ec;
-  }
   if (const auto ec = co_await loop(this, [&]() { return libssh2_session_handshake(handle_, socket_.handle()); })) {
     co_return ec;
   }
