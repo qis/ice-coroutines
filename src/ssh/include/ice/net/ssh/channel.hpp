@@ -25,8 +25,6 @@ public:
   channel& operator=(channel&& other) = default;
   channel& operator=(const channel& other) = delete;
 
-  ~channel();
-
   explicit operator bool() const noexcept
   {
     return session_ && handle_;

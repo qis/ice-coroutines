@@ -18,9 +18,9 @@ void port::close_type::operator()(std::uintptr_t handle) noexcept
   ::CloseHandle(reinterpret_cast<HANDLE>(handle));
 }
 
-std::error_code port::open(unsigned index) noexcept
+std::error_code port::open(std::string device) noexcept
 {
-  if (!index) {
+  if (device.empty()) {
     std::string buffer;
     DWORD size = 0;
     DWORD code = 0;
@@ -35,23 +35,21 @@ std::error_code port::open(unsigned index) noexcept
       return ice::make_error_code(code);
     }
     buffer.resize(size);
-    std::regex re{ "COM(\\d+)", std::regex_constants::ECMAScript | std::regex_constants::optimize };
+    std::regex re{ "COM\\d+", std::regex_constants::ECMAScript | std::regex_constants::optimize };
     for (std::size_t pos = 0; pos < buffer.size();) {
-      const auto device = std::string{ buffer.data() + pos, std::strlen(buffer.data() + pos) };
+      const auto str = std::string{ buffer.data() + pos, std::strlen(buffer.data() + pos) };
       std::smatch sm;
-      if (std::regex_match(device, sm, re)) {
-        index = std::stoul(sm[1].str());
+      if (std::regex_match(str, sm, re)) {
+        device = std::move(str);
         break;
       }
-      pos += device.size() + 1;
+      pos += str.size() + 1;
     }
   }
 
-  ice::log::info("Connecting to COM{} ...", index);
-
-  const auto name = std::string("\\\\.\\COM") + std::to_string(index);
-  handle_type handle{ ::CreateFile(
-    name.data(), GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, nullptr) };
+  const auto name = "\\\\.\\" + device;
+  const auto access = GENERIC_READ | GENERIC_WRITE;
+  handle_type handle{ ::CreateFile(name.data(), access, 0, nullptr, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, nullptr) };
   if (!handle) {
     return make_error_code(::GetLastError());
   }

@@ -25,7 +25,7 @@ public:
 
   port(ice::net::service& service) : service_(service) {}
 
-  std::error_code open(unsigned index) noexcept;
+  std::error_code open(std::string device) noexcept;
 
   void close() noexcept
   {

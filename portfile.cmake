@@ -10,7 +10,10 @@ if("ssh" IN_LIST FEATURES)
   set(BUILD_SSH ON)
 endif()
 
-vcpkg_configure_cmake(SOURCE_PATH ${CURRENT_PORT_DIR} PREFER_NINJA OPTIONS -DBUILD_SSH=${BUILD_SSH})
+vcpkg_configure_cmake(SOURCE_PATH ${CURRENT_PORT_DIR} PREFER_NINJA OPTIONS
+  -DBUILD_SSH=${BUILD_SSH}
+  -DENABLE_EXCEPTIONS=OFF
+  -DENABLE_RTTI=OFF)
 
 vcpkg_install_cmake()
 vcpkg_fixup_cmake_targets(CONFIG_PATH lib/cmake/${PORT})

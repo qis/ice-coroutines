@@ -15,17 +15,6 @@ void channel::close_type::operator()(LIBSSH2_CHANNEL* handle) noexcept
   libssh2_channel_close(handle);
 }
 
-channel::~channel()
-{
-  //if (session_ && handle_) {
-  //  [](channel channel) noexcept->task
-  //  {
-  //    co_await channel.close();
-  //  }
-  //  (std::move(*this));
-  //}
-}
-
 async<std::error_code> channel::close() noexcept
 {
   const auto ec = co_await loop(session_, [&]() { return libssh2_channel_close(handle_); });

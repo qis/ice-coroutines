@@ -177,12 +177,13 @@ private:
         for (const auto& e : handlers->second) {
           std::smatch sm;
           if (e.match(line, sm, eol)) {
-            if (!std::exchange(handled, true) && line != last_log_entry_) {
+            if (!handled && line != last_log_entry_) {
               last_log_entry_ = line;
               ice::log::info(line);
             }
             state_ = co_await e.handle(sm, ec);
             if (e.stop()) {
+              handled = true;
               break;
             }
           }

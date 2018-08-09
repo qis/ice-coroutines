@@ -74,18 +74,6 @@ session& session::operator=(session&& other) noexcept
   return *this;
 }
 
-session::~session()
-{
-  // Crashes MSVC. Just close the socket.
-  //if (connected_) {
-  //  [](session session) noexcept->task
-  //  {
-  //    co_await session.disconnect();
-  //  }
-  //  (std::move(*this));
-  //}
-}
-
 std::error_code session::create(int family) noexcept
 {
   struct library {

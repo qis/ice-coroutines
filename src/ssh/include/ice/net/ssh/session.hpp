@@ -35,8 +35,6 @@ public:
   session& operator=(session&& other) noexcept;
   session& operator=(const session& other) = delete;
 
-  ~session();
-
   explicit operator bool() const noexcept
   {
     return socket_ && handle_;
