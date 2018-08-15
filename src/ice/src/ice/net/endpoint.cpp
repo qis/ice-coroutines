@@ -15,6 +15,9 @@
 
 namespace ice::net {
 
+const int ipv4 = AF_INET;
+const int ipv6 = AF_INET6;
+
 //
 // Using placement-new and manually calling the destructor is the correct thing to do
 // and avoids undefined behavior. However, it is completely useless on any supported

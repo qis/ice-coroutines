@@ -8,6 +8,9 @@
 
 namespace ice::net {
 
+extern const int ipv4;
+extern const int ipv6;
+
 class endpoint {
 public:
   using storage_type = std::aligned_storage_t<sockaddr_storage_size, sockaddr_storage_alignment>;

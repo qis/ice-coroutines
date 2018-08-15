@@ -77,7 +77,7 @@ session& session::operator=(session&& other) noexcept
   return *this;
 }
 
-std::error_code session::create(int family) noexcept
+async<std::error_code> session::connect(net::endpoint endpoint) noexcept
 {
   struct library {
     library()
@@ -94,10 +94,11 @@ std::error_code session::create(int family) noexcept
   };
   static const library library;
   if (library.ec) {
-    return library.ec;
+    co_return library.ec;
   }
+  close();
   tcp::socket socket{ service() };
-  if (const auto ec = socket.create(family)) {
+  if (const auto ec = socket.create(endpoint.family())) {
     return ec;
   }
   session_handle session{ libssh2_session_init_ex(nullptr, nullptr, nullptr, this) };
@@ -110,38 +111,17 @@ std::error_code session::create(int family) noexcept
   libssh2_session_callback_set(session, LIBSSH2_CALLBACK_RECV, reinterpret_cast<void*>(&recv_callback));
   libssh2_session_callback_set(session, LIBSSH2_CALLBACK_SEND, reinterpret_cast<void*>(&send_callback));
   libssh2_session_set_blocking(session, 0);
+  if (const auto ec = co_await socket.connect(endpoint)) {
+    co_return ec;
+  }
   session_ = std::move(session);
   socket_ = std::move(socket);
-  return {};
-}
-
-async<std::error_code> session::connect(net::endpoint endpoint, std::string username, std::string password) noexcept
-{
-  close();
-  if (const auto ec = co_await socket_.connect(endpoint)) {
-    co_return ec;
-  }
   if (const auto ec = co_await loop([&]() { return libssh2_session_handshake(session_, socket_.handle()); })) {
+    session_.reset();
+    socket_.close();
     co_return ec;
   }
-  auto ec = co_await loop([this, username = std::move(username), password = std::move(password)]() {
-    const auto udata = username.data();
-    const auto usize = static_cast<unsigned int>(username.size());
-    const auto pdata = password.data();
-    const auto psize = static_cast<unsigned int>(password.size());
-    return libssh2_userauth_password_ex(session_, udata, usize, pdata, psize, nullptr);
-  });
-  while (!ec) {
-    channel_.reset(libssh2_channel_open_session(session_));
-    if (!channel_) {
-      if (const auto rc = libssh2_session_last_error(session_, nullptr, nullptr, 0); rc != LIBSSH2_ERROR_EAGAIN) {
-        ec = make_error_code(rc, domain_category());
-        break;
-      }
-      co_await io();
-    }
-  }
-  co_return ec;
+  co_return{};
 }
 
 async<std::error_code> session::disconnect() noexcept
@@ -158,13 +138,45 @@ async<std::error_code> session::disconnect() noexcept
     }
     session_.reset();
   }
+  if (socket_) {
+    socket_.close();
+  }
 }
 
 void session::close() noexcept
 {
-  channel_.reset();
-  session_.reset();
-  socket_.close();
+  if (channel_) {
+    channel_.reset();
+  }
+  if (session_) {
+    session_.reset();
+  }
+  if (socket_) {
+    socket_.close();
+  }
+}
+
+async<std::error_code> session::authenticate(std::string username, std::string password) noexcept
+{
+  auto ec = co_await loop([this, username = std::move(username), password = std::move(password)]() {
+    const auto udata = username.data();
+    const auto usize = static_cast<unsigned int>(username.size());
+    const auto pdata = password.data();
+    const auto psize = static_cast<unsigned int>(password.size());
+    return libssh2_userauth_password_ex(session_, udata, usize, pdata, psize, nullptr);
+  });
+  while (!ec) {
+    channel_.reset(libssh2_channel_open_session(session_));
+    if (channel_) {
+      break;
+    }
+    if (const auto rc = libssh2_session_last_error(session_, nullptr, nullptr, 0); rc != LIBSSH2_ERROR_EAGAIN) {
+      ec = make_error_code(rc, domain_category());
+      break;
+    }
+    co_await io();
+  }
+  co_return ec;
 }
 
 async<std::error_code> session::request_pty(std::string terminal) noexcept

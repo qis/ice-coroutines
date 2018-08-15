@@ -42,10 +42,11 @@ public:
 
   std::error_code create(int family) noexcept;
 
-  async<std::error_code> connect(net::endpoint endpoint, std::string username, std::string password) noexcept;
+  async<std::error_code> connect(net::endpoint endpoint) noexcept;
   async<std::error_code> disconnect() noexcept;
   void close() noexcept;
 
+  async<std::error_code> authenticate(std::string username, std::string password) noexcept;
   async<std::error_code> request_pty(std::string terminal) noexcept;
   async<std::error_code> open_shell() noexcept;
 

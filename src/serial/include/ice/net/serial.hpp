@@ -25,6 +25,11 @@ public:
 
   serial(ice::net::service& service) : service_(service) {}
 
+  constexpr explicit operator bool() const noexcept
+  {
+    return handle_.valid();
+  }
+
   std::error_code create(std::string device) noexcept;
 
   void close() noexcept
