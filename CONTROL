@@ -3,6 +3,9 @@ Version: 0.1.0
 Description: C++20 Coroutines TS framework
 Build-Depends: fmt, openssl, zlib
 
+Feature: serial
+Description: Build serial device support
+
 Feature: ssh
 Description: Build secure shell support
 Build-Depends: libssh2

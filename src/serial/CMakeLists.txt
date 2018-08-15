@@ -3,11 +3,11 @@ if(NOT BUILD_SERIAL)
   return()
 endif()
 
-file(GLOB_RECURSE headers CONFIGURE_DEPENDS include/ice/net/serial/*.hpp)
-source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/include/ice/net/serial PREFIX "include" FILES ${headers})
+file(GLOB_RECURSE headers CONFIGURE_DEPENDS include/ice/net/*.hpp)
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/include/ice/net PREFIX "include" FILES ${headers})
 
-file(GLOB_RECURSE sources CONFIGURE_DEPENDS src/ice/net/serial/*.hpp src/ice/net/serial/*.cpp)
-source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/src/ice/net/serial PREFIX "src" FILES ${sources})
+file(GLOB_RECURSE sources CONFIGURE_DEPENDS src/ice/net/*.hpp src/ice/net/*.cpp)
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/src/ice/net PREFIX "src" FILES ${sources})
 
 add_library(serial STATIC ${headers} ${sources})
 set_target_properties(serial PROPERTIES OUTPUT_NAME "ice-serial")

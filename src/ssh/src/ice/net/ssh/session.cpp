@@ -1,8 +1,8 @@
 #include "ice/net/ssh/session.hpp"
 #include <ice/net/event.hpp>
 #include <ice/net/ssh/error.hpp>
-#include <ice/net/ssh/loop.hpp>
 #include <libssh2.h>
+#include <cstdlib>
 
 #if ICE_OS_WIN32
 #  include <windows.h>
@@ -10,10 +10,6 @@
 #else
 #  include <sys/socket.h>
 #  include <sys/types.h>
-#endif
-
-#if ICE_DEBUG
-#  include <ice/log.hpp>
 #endif
 
 namespace ice::net::ssh {
@@ -43,13 +39,19 @@ static LIBSSH2_SEND_FUNC(send_callback)
 
 }  // namespace
 
-void session::close_type::operator()(LIBSSH2_SESSION* handle) noexcept
+void session::session_destructor::operator()(LIBSSH2_SESSION* handle) noexcept
 {
   libssh2_session_set_blocking(handle, 1);
   libssh2_session_free(handle);
 }
 
-session::session(session&& other) noexcept : socket_(std::move(other.socket_)), handle_(std::move(other.handle_))
+void session::channel_destructor::operator()(LIBSSH2_CHANNEL* handle) noexcept
+{
+  libssh2_channel_close(handle);
+}
+
+session::session(session&& other) noexcept :
+  socket_(std::move(other.socket_)), session_(std::move(other.session_)), channel_(std::move(other.channel_))
 {
   operation_ = other.operation_;
 #if ICE_OS_WIN32
@@ -57,20 +59,21 @@ session::session(session&& other) noexcept : socket_(std::move(other.socket_)), 
   size_ = other.size_;
   ready_ = other.ready_;
 #endif
-  *libssh2_session_abstract(handle_) = this;
+  *libssh2_session_abstract(session_) = this;
 }
 
 session& session::operator=(session&& other) noexcept
 {
   socket_ = std::move(other.socket_);
-  handle_ = std::move(other.handle_);
+  session_ = std::move(other.session_);
+  channel_ = std::move(other.channel_);
   operation_ = other.operation_;
 #if ICE_OS_WIN32
   storage_ = other.storage_;
   size_ = other.size_;
   ready_ = other.ready_;
 #endif
-  *libssh2_session_abstract(handle_) = this;
+  *libssh2_session_abstract(session_) = this;
   return *this;
 }
 
@@ -97,69 +100,124 @@ std::error_code session::create(int family) noexcept
   if (const auto ec = socket.create(family)) {
     return ec;
   }
-  handle_type handle{ libssh2_session_init_ex(nullptr, nullptr, nullptr, this) };
-  if (!handle) {
+  session_handle session{ libssh2_session_init_ex(nullptr, nullptr, nullptr, this) };
+  if (!session) {
     return make_error_code(LIBSSH2_ERROR_ALLOC, domain_category());
   }
-  if (const auto rc = libssh2_session_flag(handle, LIBSSH2_FLAG_COMPRESS, 1)) {
+  if (const auto rc = libssh2_session_flag(session, LIBSSH2_FLAG_COMPRESS, 1)) {
     return make_error_code(rc, domain_category());
   }
-  libssh2_session_callback_set(handle, LIBSSH2_CALLBACK_RECV, reinterpret_cast<void*>(&recv_callback));
-  libssh2_session_callback_set(handle, LIBSSH2_CALLBACK_SEND, reinterpret_cast<void*>(&send_callback));
-  libssh2_session_set_blocking(handle, 0);
-  handle_ = std::move(handle);
+  libssh2_session_callback_set(session, LIBSSH2_CALLBACK_RECV, reinterpret_cast<void*>(&recv_callback));
+  libssh2_session_callback_set(session, LIBSSH2_CALLBACK_SEND, reinterpret_cast<void*>(&send_callback));
+  libssh2_session_set_blocking(session, 0);
+  session_ = std::move(session);
   socket_ = std::move(socket);
   return {};
 }
 
-async<std::error_code> session::connect(net::endpoint endpoint) noexcept
+async<std::error_code> session::connect(net::endpoint endpoint, std::string username, std::string password) noexcept
 {
-  if (connected_) {
-    co_await disconnect();
-  }
+  close();
   if (const auto ec = co_await socket_.connect(endpoint)) {
     co_return ec;
   }
-  if (const auto ec = co_await loop(this, [&]() { return libssh2_session_handshake(handle_, socket_.handle()); })) {
+  if (const auto ec = co_await loop([&]() { return libssh2_session_handshake(session_, socket_.handle()); })) {
     co_return ec;
   }
-  connected_ = true;
-  co_return{};
-}
-
-async<std::error_code> session::disconnect() noexcept
-{
-  const auto ec = co_await loop(this, [&]() { return libssh2_session_disconnect(handle_, "shutdown"); });
-  connected_ = false;
-  socket_.close();
-  co_return ec;
-}
-
-async<std::error_code> session::authenticate(std::string username, std::string password) noexcept
-{
-  return loop(this, [this, username = std::move(username), password = std::move(password)]() {
+  auto ec = co_await loop([this, username = std::move(username), password = std::move(password)]() {
     const auto udata = username.data();
     const auto usize = static_cast<unsigned int>(username.size());
     const auto pdata = password.data();
     const auto psize = static_cast<unsigned int>(password.size());
-    return libssh2_userauth_password_ex(handle_, udata, usize, pdata, psize, nullptr);
+    return libssh2_userauth_password_ex(session_, udata, usize, pdata, psize, nullptr);
   });
+  while (!ec) {
+    channel_.reset(libssh2_channel_open_session(session_));
+    if (!channel_) {
+      if (const auto rc = libssh2_session_last_error(session_, nullptr, nullptr, 0); rc != LIBSSH2_ERROR_EAGAIN) {
+        ec = make_error_code(rc, domain_category());
+        break;
+      }
+      co_await io();
+    }
+  }
+  co_return ec;
 }
 
-async<channel> session::open(std::error_code& ec) noexcept
+async<std::error_code> session::disconnect() noexcept
 {
-  while (true) {
-    const auto handle = libssh2_channel_open_session(handle_);
-    if (handle) {
-      co_return{ this, ssh::channel::handle_type{ handle } };
+  if (channel_) {
+    if (const auto ec = co_await loop([&]() { return libssh2_channel_close(channel_); })) {
+      co_return ec;
     }
-    if (const auto rc = libssh2_session_last_error(handle_, nullptr, nullptr, 0); rc != LIBSSH2_ERROR_EAGAIN) {
-      ec = make_error_code(rc, domain_category());
+    channel_.reset();
+  }
+  if (session_) {
+    if (const auto ec = co_await loop([&]() { return libssh2_session_disconnect(session_, "shutdown"); })) {
+      co_return ec;
+    }
+    session_.reset();
+  }
+}
+
+void session::close() noexcept
+{
+  channel_.reset();
+  session_.reset();
+  socket_.close();
+}
+
+async<std::error_code> session::request_pty(std::string terminal) noexcept
+{
+  return loop([&, terminal = std::move(terminal)]() { return libssh2_channel_request_pty(channel_, terminal.data()); });
+}
+
+async<std::error_code> session::open_shell() noexcept
+{
+  return loop([&]() { return libssh2_channel_shell(channel_); });
+}
+
+async<int> session::exec(std::string command, std::error_code& ec) noexcept
+{
+  ec = co_await loop([&, command = std::move(command)]() { return libssh2_channel_exec(channel_, command.data()); });
+  co_return ec ? EXIT_FAILURE : libssh2_channel_get_exit_status(channel_);
+}
+
+async<std::size_t> session::recv(FILE* stream, char* data, std::size_t size, std::error_code& ec) noexcept
+{
+  const auto stream_id = stream == stderr ? SSH_EXTENDED_DATA_STDERR : 0;
+  while (true) {
+    if (const auto rc = libssh2_channel_read_ex(channel_, stream_id, data, size); rc >= 0) {
+      co_return static_cast<std::size_t>(rc);
+    } else if (rc != LIBSSH2_ERROR_EAGAIN) {
+      if (rc != LIBSSH2_ERROR_NONE) {
+        ec = make_error_code(rc);
+      }
       break;
     }
     co_await io();
   }
   co_return{};
+}
+
+async<std::size_t> session::send(FILE* stream, const char* data, std::size_t size, std::error_code& ec) noexcept
+{
+  const auto stream_id = stream == stderr ? SSH_EXTENDED_DATA_STDERR : 0;
+  const auto data_size = size;
+  do {
+    if (const auto rc = libssh2_channel_write_ex(channel_, stream_id, data, size); rc > 0) {
+      data += static_cast<std::size_t>(rc);
+      size -= static_cast<std::size_t>(rc);
+      continue;
+    } else if (rc != LIBSSH2_ERROR_EAGAIN) {
+      if (rc != LIBSSH2_ERROR_NONE) {
+        ec = make_error_code(rc);
+      }
+      break;
+    }
+    co_await io();
+  } while (size > 0);
+  co_return data_size - size;
 }
 
 async<std::error_code> session::io() noexcept
@@ -183,6 +241,22 @@ async<std::error_code> session::io() noexcept
   }
 #endif
   co_return ec;
+}
+
+template <typename Function>
+inline async<std::error_code> session::loop(Function function) noexcept
+{
+  while (true) {
+    const auto rc = function();
+    if (rc == LIBSSH2_ERROR_NONE) {
+      break;
+    }
+    if (rc != LIBSSH2_ERROR_EAGAIN) {
+      co_return make_error_code(rc, domain_category());
+    }
+    co_await io();
+  }
+  co_return{};
 }
 
 long long on_recv(session& session, char* data, std::size_t size, int flags) noexcept

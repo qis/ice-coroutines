@@ -1,4 +1,4 @@
-#include "ice/net/serial/port.hpp"
+#include "ice/net/serial.hpp"
 #include <ice/error.hpp>
 #include <ice/log.hpp>
 #include <ice/net/event.hpp>
@@ -11,40 +11,17 @@
 #  include <unistd.h>
 #endif
 
-namespace ice::net::serial {
+namespace ice::net {
 
-void port::close_type::operator()(std::uintptr_t handle) noexcept
+void serial::close_type::operator()(std::uintptr_t handle) noexcept
 {
   ::CloseHandle(reinterpret_cast<HANDLE>(handle));
 }
 
-std::error_code port::open(std::string device) noexcept
+std::error_code serial::create(std::string device) noexcept
 {
   if (device.empty()) {
-    std::string buffer;
-    DWORD size = 0;
-    DWORD code = 0;
-    do {
-      buffer.resize(buffer.size() + MAX_PATH);
-      size = ::QueryDosDevice(nullptr, buffer.data(), static_cast<DWORD>(buffer.size()));
-      if (!size) {
-        code = ::GetLastError();
-      }
-    } while (size == 0 && code == ERROR_INSUFFICIENT_BUFFER);
-    if (size == 0) {
-      return ice::make_error_code(code);
-    }
-    buffer.resize(size);
-    std::regex re{ "COM\\d+", std::regex_constants::ECMAScript | std::regex_constants::optimize };
-    for (std::size_t pos = 0; pos < buffer.size();) {
-      const auto str = std::string{ buffer.data() + pos, std::strlen(buffer.data() + pos) };
-      std::smatch sm;
-      if (std::regex_match(str, sm, re)) {
-        device = std::move(str);
-        break;
-      }
-      pos += str.size() + 1;
-    }
+    return make_error_code(std::errc::invalid_argument);
   }
 
   const auto name = "\\\\.\\" + device;
@@ -99,7 +76,7 @@ std::error_code port::open(std::string device) noexcept
   return {};
 }
 
-async<std::size_t> port::recv(char* data, std::size_t size, std::error_code& ec) noexcept
+async<std::size_t> serial::recv(char* data, std::size_t size, std::error_code& ec) noexcept
 {
   ec.clear();
   event ev;
@@ -120,7 +97,7 @@ async<std::size_t> port::recv(char* data, std::size_t size, std::error_code& ec)
   co_return bytes;
 }
 
-async<std::size_t> port::send(const char* data, std::size_t size, std::error_code& ec) noexcept
+async<std::size_t> serial::send(const char* data, std::size_t size, std::error_code& ec) noexcept
 {
   ec.clear();
   DWORD bytes = 0;
@@ -147,6 +124,33 @@ async<std::size_t> port::send(const char* data, std::size_t size, std::error_cod
     written += bytes;
   } while (size > 0);
   co_return written;
+}
+
+std::string serial::default_device()
+{
+  std::string buffer;
+  DWORD size = 0;
+  DWORD code = 0;
+  do {
+    buffer.resize(buffer.size() + MAX_PATH);
+    size = ::QueryDosDevice(nullptr, buffer.data(), static_cast<DWORD>(buffer.size()));
+    if (!size) {
+      code = ::GetLastError();
+    }
+  } while (size == 0 && code == ERROR_INSUFFICIENT_BUFFER);
+  if (size) {
+    buffer.resize(size);
+    std::regex re{ "COM\\d+", std::regex_constants::ECMAScript | std::regex_constants::optimize };
+    for (std::size_t pos = 0; pos < buffer.size();) {
+      const auto str = std::string{ buffer.data() + pos, std::strlen(buffer.data() + pos) };
+      std::smatch sm;
+      if (std::regex_match(str, sm, re)) {
+        return str;
+      }
+      pos += str.size() + 1;
+    }
+  }
+  return "COM1";
 }
 
 }  // namespace ice::net::serial

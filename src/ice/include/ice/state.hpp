@@ -154,6 +154,25 @@ public:
     co_return{};
   }
 
+  template <typename Stream, typename State>
+  ice::async<std::error_code> run(Stream& stream, State done, std::size_t buffer_size = 4096)
+  {
+    std::string buffer;
+    buffer.resize(buffer_size);
+    while (state_ != done) {
+      std::error_code ec;
+      const auto data = co_await recv(stream, buffer, ec);
+      if (ec) {
+        co_return ec;
+      }
+      ec = co_await parse(data.data(), data.size());
+      if (ec) {
+        co_return ec;
+      }
+    }
+    co_return{};
+  }
+
   constexpr State state() const noexcept
   {
     return state_;

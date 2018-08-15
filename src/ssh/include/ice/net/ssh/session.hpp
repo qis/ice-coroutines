@@ -2,31 +2,31 @@
 #include <ice/async.hpp>
 #include <ice/config.hpp>
 #include <ice/handle.hpp>
-#include <ice/net/ssh/channel.hpp>
-#include <ice/net/ssh/types.hpp>
 #include <ice/net/tcp/socket.hpp>
 #include <memory>
 #include <system_error>
+#include <cstdio>
 
 #if ICE_OS_WIN32
 #  include <array>
 #endif
 
+typedef struct _LIBSSH2_SESSION LIBSSH2_SESSION;
+typedef struct _LIBSSH2_CHANNEL LIBSSH2_CHANNEL;
+
 namespace ice::net::ssh {
 
 class session {
 public:
-  enum class operation {
-    none,
-    recv,
-    send,
-  };
-
-  struct close_type {
+  struct session_destructor {
     void operator()(LIBSSH2_SESSION* handle) noexcept;
   };
-  using handle_type = handle<LIBSSH2_SESSION*, nullptr, close_type>;
-  using handle_view = handle_type::view;
+  using session_handle = handle<LIBSSH2_SESSION*, nullptr, session_destructor>;
+
+  struct channel_destructor {
+    void operator()(LIBSSH2_CHANNEL* handle) noexcept;
+  };
+  using channel_handle = handle<LIBSSH2_CHANNEL*, nullptr, channel_destructor>;
 
   session(service& service) noexcept : socket_(service) {}
 
@@ -37,42 +37,58 @@ public:
 
   explicit operator bool() const noexcept
   {
-    return socket_ && handle_;
+    return socket_ && session_ && channel_;
   }
 
   std::error_code create(int family) noexcept;
 
-  async<std::error_code> connect(net::endpoint endpoint) noexcept;
+  async<std::error_code> connect(net::endpoint endpoint, std::string username, std::string password) noexcept;
   async<std::error_code> disconnect() noexcept;
+  void close() noexcept;
 
-  async<std::error_code> authenticate(std::string username, std::string password) noexcept;
+  async<std::error_code> request_pty(std::string terminal) noexcept;
+  async<std::error_code> open_shell() noexcept;
 
-  async<channel> open(std::error_code& ec) noexcept;
+  async<int> exec(std::string command, std::error_code& ec) noexcept;
 
-  async<std::error_code> io() noexcept;
-
-  bool connected() const noexcept
+  async<std::size_t> recv(char* data, std::size_t size, std::error_code& ec) noexcept
   {
-    return connected_;
+    return recv(stdout, data, size, ec);
   }
+
+  async<std::size_t> recv(FILE* stream, char* data, std::size_t size, std::error_code& ec) noexcept;
+
+  async<std::size_t> send(const char* data, std::size_t size, std::error_code& ec) noexcept
+  {
+    return send(stdout, data, size, ec);
+  }
+
+  async<std::size_t> send(FILE* stream, const char* data, std::size_t size, std::error_code& ec) noexcept;
 
   net::service& service() const noexcept
   {
     return socket_.service();
   }
 
-  handle_view handle() const noexcept
-  {
-    return handle_;
-  }
-
 private:
+  enum class operation {
+    none,
+    recv,
+    send,
+  };
+
+  async<std::error_code> io() noexcept;
+
+  template <typename Function>
+  async<std::error_code> loop(Function function) noexcept;
+
   friend long long on_recv(session& session, char* data, std::size_t size, int flags) noexcept;
   friend long long on_send(session& session, const char* data, std::size_t size, int flags) noexcept;
 
   tcp::socket socket_;
-  handle_type handle_;
-  bool connected_ = false;
+  session_handle session_;
+  channel_handle channel_;
+  //bool connected_ = false;
 
   operation operation_ = operation::none;
 #if ICE_OS_WIN32

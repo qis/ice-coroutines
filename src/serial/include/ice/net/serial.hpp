@@ -6,9 +6,9 @@
 #include <functional>
 #include <system_error>
 
-namespace ice::net::serial {
+namespace ice::net {
 
-class port {
+class serial {
 public:
 #if ICE_OS_WIN32
   struct close_type {
@@ -23,9 +23,9 @@ public:
 #endif
   using handle_view = handle_type::view;
 
-  port(ice::net::service& service) : service_(service) {}
+  serial(ice::net::service& service) : service_(service) {}
 
-  std::error_code open(std::string device) noexcept;
+  std::error_code create(std::string device) noexcept;
 
   void close() noexcept
   {
@@ -44,6 +44,8 @@ public:
   {
     return handle_;
   }
+
+  static std::string default_device();
 
 private:
   std::reference_wrapper<net::service> service_;
