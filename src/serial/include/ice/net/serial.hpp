@@ -30,7 +30,7 @@ public:
     return handle_.valid();
   }
 
-  std::error_code create(std::string device) noexcept;
+  std::error_code create(std::string device = default_device()) noexcept;
 
   void close() noexcept
   {

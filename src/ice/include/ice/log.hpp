@@ -32,6 +32,7 @@ enum class level : std::uint16_t {
   notice    = 5,
   info      = 6,
   debug     = 7,
+  custom    = 8,
 };
 
 // clang-format on
@@ -151,6 +152,12 @@ template <typename... Args>
 inline auto debug(Args&&... args)
 {
   return queue(clock::now(), level::debug, std::forward<Args>(args)...);
+}
+
+template <typename... Args>
+inline auto custom(Args&&... args)
+{
+  return queue(clock::now(), level::custom, std::forward<Args>(args)...);
 }
 
 void print(const entry& entry);

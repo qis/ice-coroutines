@@ -22,13 +22,13 @@
 
 #pragma once
 #include <ice/config.hpp>
+#include <ice/error.hpp>
 #include <ice/result.hpp>
 #include <atomic>
 #include <experimental/coroutine>
 #include <iterator>
 #include <memory>
 #include <mutex>
-#include <string_view>
 #include <type_traits>
 #include <utility>
 #include <cassert>
@@ -1237,20 +1237,36 @@ inline bool async_mutex_lock_operation::await_suspend(std::experimental::corouti
 template <typename T>
 using async_result = async<result<T>>;
 
+// clang-format off
+
 template <typename Stream, typename Buffer>
-inline async<std::string_view> recv(Stream& stream, Buffer& buffer, std::error_code& ec) noexcept(
-  noexcept(stream.recv(std::data(buffer), std::size(buffer), ec)))
+inline async<std::size_t> recv(Stream& stream, Buffer& buffer, std::error_code& ec)
+  noexcept(noexcept(stream.recv(std::data(buffer), std::size(buffer), ec)))
 {
-  const auto size = co_await stream.recv(std::data(buffer), std::size(buffer), ec);
-  co_return std::string_view{ std::data(buffer), size };
+  return stream.recv(std::data(buffer), std::size(buffer), ec);
 }
 
 template <typename Stream, typename Buffer>
-inline async<bool> send(Stream& stream, const Buffer& buffer, std::error_code& ec) noexcept(
-  noexcept(stream.send(std::data(buffer), std::size(buffer), ec)))
+inline async<std::size_t> send(Stream& stream, const Buffer& buffer, std::error_code& ec)
+  noexcept(noexcept(stream.send(std::data(buffer), std::size(buffer), ec)))
 {
-  const auto size = co_await stream.send(std::data(buffer), std::size(buffer), ec);
-  co_return size == std::size(buffer);
+  return stream.send(std::data(buffer), std::size(buffer), ec);
 }
+
+template <typename Stream, typename Buffer>
+inline async<std::error_code> send(Stream& stream, const Buffer& buffer)
+  noexcept(noexcept(stream.send(std::data(buffer), std::size(buffer), std::declval<std::error_code&>())))
+{
+  std::error_code ec;
+  const auto data = std::data(buffer);
+  const auto size = std::size(buffer);
+  const auto sent = co_await stream.send(data, size, ec);
+  if (!ec && sent < size) {
+    co_return make_error_code(errc::eof);
+  }
+  co_return ec;
+}
+
+// clang-format on
 
 }  // namespace ice

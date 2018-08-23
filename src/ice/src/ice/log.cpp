@@ -94,6 +94,7 @@ format get_level_format(level level) noexcept
   case level::notice:    return color::green;
   case level::info:      return {};
   case level::debug:     return color::grey;
+  case level::custom:    return {};
   }
   // clang-format on
   return {};
@@ -111,6 +112,7 @@ const char* get_level_string(level level, bool padding) noexcept
   case level::notice:    return padding ? "notice   " : "notice";
   case level::info:      return padding ? "info     " : "info";
   case level::debug:     return padding ? "debug    " : "debug";
+  case level::custom:    return padding ? "custom   " : "custom";
   }
   // clang-format on
   return padding ? "unknown  " : "unknown";

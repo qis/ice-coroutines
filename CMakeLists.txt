@@ -13,9 +13,11 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 endif()
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-  add_compile_options(/arch:AVX /favor:INTEL64 /await /await:heapelide)
+  add_compile_options(/await)
+  #add_compile_options(/arch:AVX /favor:INTEL64 /await:heapelide)
 else()
-  add_compile_options(-march=native -mavx -fcoroutines-ts)
+  add_compile_options(-fcoroutines-ts)
+  #add_compile_options(-march=native -mavx)
 endif()
 
 option(ENABLE_EXCEPTIONS "Enable exceptions" ON)
