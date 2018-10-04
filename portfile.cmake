@@ -18,8 +18,8 @@ endif()
 vcpkg_configure_cmake(SOURCE_PATH ${CURRENT_PORT_DIR} PREFER_NINJA OPTIONS
   -DBUILD_SERIAL=${BUILD_SERIAL}
   -DBUILD_SSH=${BUILD_SSH}
-  -DENABLE_EXCEPTIONS=OFF
-  -DENABLE_RTTI=OFF)
+  -DENABLE_EXCEPTIONS=ON
+  -DENABLE_RTTI=ON)
 
 vcpkg_install_cmake()
 vcpkg_fixup_cmake_targets(CONFIG_PATH lib/cmake/${PORT})

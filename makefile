@@ -8,8 +8,8 @@ SYSDBG	!= which lldb-devel || which lldb || which gdb
 APPLICATION	?= ON
 BENCHMARK	?= ON
 TESTS		?= ON
-EXCEPTIONS	?= OFF
-RTTI		?= OFF
+EXCEPTIONS	?= ON
+RTTI		?= ON
 
 CMAKE	:= CC=$(CC) CXX=$(CXX) CPPFLAGS="-fdiagnostics-absolute-paths -fcolor-diagnostics" cmake -GNinja
 CMAKE	+= -DVCPKG_TARGET_TRIPLET=${VCPKG_DEFAULT_TRIPLET}
