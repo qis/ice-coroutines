@@ -22,8 +22,7 @@ public:
           lock.unlock();
           return;
         }
-        cv_.wait(lock, []() { return true; });
-        head = acquire();
+        cv_.wait(lock, [&]() { head = acquire(); return head ? true : false; });
       }
       lock.unlock();
       while (head) {

@@ -124,6 +124,9 @@ std::error_code service::run(std::size_t event_buffer_size) noexcept
       }
       break;
     }
+    if (count < 1) {
+      break;
+    }
 #else
 #  if ICE_OS_LINUX
     const auto timeout = stop ? 1 : -1;
@@ -132,7 +135,7 @@ std::error_code service::run(std::size_t event_buffer_size) noexcept
     const auto timeout = stop ? &ts : nullptr;
     const auto count = ::kevent(handle_, nullptr, 0, events_data, events_size, timeout);
 #  endif
-    if (count <= 0) {
+    if (count < 1) {
       if (count < 0 && errno != EINTR) {
         return make_error_code(errno);
       }
