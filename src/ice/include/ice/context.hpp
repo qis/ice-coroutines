@@ -22,7 +22,10 @@ public:
           lock.unlock();
           return;
         }
-        cv_.wait(lock, [&]() { head = acquire(); return head ? true : false; });
+        cv_.wait(lock, [&]() {
+          head = acquire();
+          return head || stop_.load(std::memory_order_acquire);
+        });
       }
       lock.unlock();
       while (head) {
