@@ -61,7 +61,7 @@ void limit(std::size_t queue_size) noexcept;
 void queue(time_point tp, level level, format format, std::string message) noexcept;
 
 template <typename Arg, typename... Args>
-inline void queue(time_point tp, level level, format format, std::string_view message, Arg&& arg, Args&&... args)
+inline void queue(time_point tp, level level, format format, fmt::string_view message, Arg&& arg, Args&&... args)
 {
   queue(tp, level, format, fmt::format(message, std::forward<Arg>(arg), std::forward<Args>(args)...));
 }
@@ -72,7 +72,7 @@ inline void queue(time_point tp, level level, std::string message) noexcept
 }
 
 template <typename Arg, typename... Args>
-inline void queue(time_point tp, level level, std::string_view message, Arg&& arg, Args&&... args)
+inline void queue(time_point tp, level level, fmt::string_view message, Arg&& arg, Args&&... args)
 {
   queue(tp, level, format{}, fmt::format(message, std::forward<Arg>(arg), std::forward<Args>(args)...));
 }
@@ -80,7 +80,7 @@ inline void queue(time_point tp, level level, std::string_view message, Arg&& ar
 // clang-format off
 
 template <typename Arg, typename... Args>
-inline int queue(time_point tp, level level, std::error_code ec, format format, std::string_view message, Arg&& arg, Args&&... args)
+inline int queue(time_point tp, level level, std::error_code ec, format format, fmt::string_view message, Arg&& arg, Args&&... args)
 {
   queue(tp, level, format,
     fmt::format("{} error {}: {} ({})", ec.category().name(), ec.value(),
@@ -96,7 +96,7 @@ inline int queue(time_point tp, level level, std::error_code ec, std::string mes
 }
 
 template <typename Arg, typename... Args>
-inline int queue(time_point tp, level level, std::error_code ec, std::string_view message, Arg&& arg, Args&&... args)
+inline int queue(time_point tp, level level, std::error_code ec, fmt::string_view message, Arg&& arg, Args&&... args)
 {
   queue(tp, level, format{},
     fmt::format("{} error {}: {} ({})", ec.category().name(), ec.value(),
