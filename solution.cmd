@@ -12,7 +12,7 @@ pushd %build%
 cmake -G "Visual Studio 15 2017 Win64" ^
   -DCMAKE_CONFIGURATION_TYPES="Debug;Release" ^
   -DVCPKG_TARGET_TRIPLET=%VCPKG_DEFAULT_TRIPLET% ^
-  -DCMAKE_TOOLCHAIN_FILE=%VCPKG%\scripts\buildsystems\vcpkg.cmake ^
+  -DCMAKE_TOOLCHAIN_FILE=C:\Workspace\vcpkg\scripts\buildsystems\vcpkg.cmake ^
   -DBUILD_APPLICATION=ON -DBUILD_BENCHMARK=ON -DBUILD_TESTS=ON ^
   -DENABLE_EXCEPTIONS=ON -DENABLE_RTTI=ON ^
   -DCMAKE_INSTALL_PREFIX=%~dp0 %~dp0
