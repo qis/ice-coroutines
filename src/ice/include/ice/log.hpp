@@ -162,6 +162,8 @@ inline auto custom(Args&&... args)
 
 void print(const entry& entry);
 
+void stop() noexcept;
+
 struct task {
   struct promise_type {
     constexpr task get_return_object() const noexcept

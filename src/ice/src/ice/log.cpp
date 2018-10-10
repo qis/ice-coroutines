@@ -19,6 +19,11 @@ public:
 
   ~logger()
   {
+    stop();
+  }
+
+  void stop() noexcept
+  {
     context_.stop();
     if (thread_.joinable()) {
       thread_.join();
@@ -173,6 +178,11 @@ void print(const log::entry& entry)
   } else {
     fmt::print(stream, "{}] {}\n", level_string, entry.message);
   }
+}
+
+void stop() noexcept
+{
+  g_logger.stop();
 }
 
 }  // namespace ice::log
