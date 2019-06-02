@@ -39,7 +39,7 @@ struct result_storage {
     }
   }
 
-  result_storage& operator=(result_storage&& other) noexcept(std::is_nothrow_move_assignable_v<T>)
+  result_storage& operator=(result_storage&& other) noexcept
   {
     if (has_value) {
       value.~value_type();
@@ -55,7 +55,7 @@ struct result_storage {
     return *this;
   }
 
-  result_storage& operator=(const result_storage& other) noexcept(std::is_nothrow_copy_assignable_v<T>)
+  result_storage& operator=(const result_storage& other) noexcept
   {
     if (has_value) {
       value.~value_type();
