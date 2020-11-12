@@ -4,10 +4,7 @@ if(NOT BUILD_SERIAL)
 endif()
 
 file(GLOB_RECURSE headers CONFIGURE_DEPENDS include/ice/net/*.hpp)
-source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/include/ice/net PREFIX "include" FILES ${headers})
-
 file(GLOB_RECURSE sources CONFIGURE_DEPENDS src/ice/net/*.hpp src/ice/net/*.cpp)
-source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/src/ice/net PREFIX "src" FILES ${sources})
 
 add_library(serial STATIC ${headers} ${sources})
 set_target_properties(serial PROPERTIES OUTPUT_NAME "ice-serial")
@@ -17,10 +14,6 @@ target_include_directories(serial PRIVATE src PUBLIC
   $<INSTALL_INTERFACE:include>)
 
 target_link_libraries(serial PUBLIC ice::ice)
-
-if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  target_link_libraries(serial PUBLIC c++experimental)
-endif()
 
 install(TARGETS serial EXPORT serial
   RUNTIME DESTINATION bin

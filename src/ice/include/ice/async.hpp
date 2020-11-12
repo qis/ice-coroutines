@@ -25,7 +25,7 @@
 #include <ice/error.hpp>
 #include <ice/result.hpp>
 #include <atomic>
-#include <experimental/coroutine>
+#include <coroutine>
 #include <iterator>
 #include <memory>
 #include <mutex>
@@ -51,12 +51,12 @@ struct task {
 
     constexpr auto initial_suspend() const noexcept
     {
-      return std::experimental::suspend_never{};
+      return std::suspend_never{};
     }
 
     constexpr auto final_suspend() const noexcept
     {
-      return std::experimental::suspend_never{};
+      return std::suspend_never{};
     }
 
     constexpr void return_void() const noexcept {}
@@ -90,24 +90,24 @@ public:
 
   generator<T> get_return_object() noexcept;
 
-  constexpr std::experimental::suspend_always initial_suspend() const
+  constexpr std::suspend_always initial_suspend() const
   {
     return {};
   }
 
-  constexpr std::experimental::suspend_always final_suspend() const
+  constexpr std::suspend_always final_suspend() const
   {
     return {};
   }
 
   template <typename U, typename = std::enable_if_t<std::is_same<U, T>::value>>
-  std::experimental::suspend_always yield_value(U& value) noexcept
+  std::suspend_always yield_value(U& value) noexcept
   {
     m_value = std::addressof(value);
     return {};
   }
 
-  std::experimental::suspend_always yield_value(T&& value) noexcept
+  std::suspend_always yield_value(T&& value) noexcept
   {
     m_value = std::addressof(value);
     return {};
@@ -130,7 +130,7 @@ public:
   }
 
   template <typename U>
-  std::experimental::suspend_never await_transform(U&& value) = delete;
+  std::suspend_never await_transform(U&& value) = delete;
 
 private:
   pointer_type m_value;
@@ -138,7 +138,7 @@ private:
 
 template <typename T>
 class generator_iterator {
-  using coroutine_handle = std::experimental::coroutine_handle<generator_promise<T>>;
+  using coroutine_handle = std::coroutine_handle<generator_promise<T>>;
 
 public:
   using iterator_category = std::input_iterator_tag;
@@ -240,9 +240,9 @@ public:
 private:
   friend class detail::generator_promise<T>;
 
-  explicit generator(std::experimental::coroutine_handle<promise_type> coroutine) noexcept : m_coroutine(coroutine) {}
+  explicit generator(std::coroutine_handle<promise_type> coroutine) noexcept : m_coroutine(coroutine) {}
 
-  std::experimental::coroutine_handle<promise_type> m_coroutine = nullptr;
+  std::coroutine_handle<promise_type> m_coroutine = nullptr;
 };
 
 template <typename T>
@@ -256,7 +256,7 @@ namespace detail {
 template <typename T>
 generator<T> generator_promise<T>::get_return_object() noexcept
 {
-  using coroutine_handle = std::experimental::coroutine_handle<generator_promise<T>>;
+  using coroutine_handle = std::coroutine_handle<generator_promise<T>>;
   return generator<T>{ coroutine_handle::from_promise(*this) };
 }
 
@@ -283,7 +283,7 @@ public:
 
   continuation() noexcept = default;
 
-  explicit continuation(std::experimental::coroutine_handle<> awaiter) noexcept :
+  explicit continuation(std::coroutine_handle<> awaiter) noexcept :
     m_callback(nullptr), m_state(awaiter.address())
   {}
 
@@ -297,7 +297,7 @@ public:
   void resume() noexcept
   {
     if (m_callback == nullptr) {
-      std::experimental::coroutine_handle<>::from_address(m_state).resume();
+      std::coroutine_handle<>::from_address(m_state).resume();
     } else {
       m_callback(m_state);
     }
@@ -327,7 +327,7 @@ class async_promise_base {
     }
 
     template <typename PROMISE>
-    void await_suspend(std::experimental::coroutine_handle<PROMISE> coroutine)
+    void await_suspend(std::coroutine_handle<PROMISE> coroutine)
     {
       async_promise_base& promise = coroutine.promise();
       if (promise.m_state.exchange(true, std::memory_order_acq_rel)) {
@@ -343,7 +343,7 @@ public:
 
   auto initial_suspend() noexcept
   {
-    return std::experimental::suspend_always{};
+    return std::suspend_always{};
   }
 
   auto final_suspend() noexcept
@@ -493,16 +493,16 @@ public:
 
 private:
   struct awaitable_base {
-    std::experimental::coroutine_handle<promise_type> m_coroutine;
+    std::coroutine_handle<promise_type> m_coroutine;
 
-    awaitable_base(std::experimental::coroutine_handle<promise_type> coroutine) noexcept : m_coroutine(coroutine) {}
+    awaitable_base(std::coroutine_handle<promise_type> coroutine) noexcept : m_coroutine(coroutine) {}
 
     bool await_ready() const noexcept
     {
       return !m_coroutine || m_coroutine.done();
     }
 
-    bool await_suspend(std::experimental::coroutine_handle<> awaiter) noexcept
+    bool await_suspend(std::coroutine_handle<> awaiter) noexcept
     {
       m_coroutine.resume();
       return m_coroutine.promise().try_set_continuation(detail::continuation{ awaiter });
@@ -512,7 +512,7 @@ private:
 public:
   async() noexcept = default;
 
-  explicit async(std::experimental::coroutine_handle<promise_type> coroutine) : m_coroutine(coroutine) {}
+  explicit async(std::coroutine_handle<promise_type> coroutine) : m_coroutine(coroutine) {}
 
   async(async&& t) noexcept : m_coroutine(t.m_coroutine)
   {
@@ -603,7 +603,7 @@ public:
   {
     class starter {
     public:
-      starter(std::experimental::coroutine_handle<promise_type> coroutine) noexcept : m_coroutine(coroutine) {}
+      starter(std::coroutine_handle<promise_type> coroutine) noexcept : m_coroutine(coroutine) {}
 
       void start(detail::continuation continuation) noexcept
       {
@@ -617,14 +617,14 @@ public:
       }
 
     private:
-      std::experimental::coroutine_handle<promise_type> m_coroutine;
+      std::coroutine_handle<promise_type> m_coroutine;
     };
 
     return starter{ m_coroutine };
   }
 
 private:
-  std::experimental::coroutine_handle<promise_type> m_coroutine = nullptr;
+  std::coroutine_handle<promise_type> m_coroutine = nullptr;
 };
 
 namespace detail {
@@ -632,18 +632,18 @@ namespace detail {
 template <typename T>
 async<T> async_promise<T>::get_return_object() noexcept
 {
-  return async<T>{ std::experimental::coroutine_handle<async_promise>::from_promise(*this) };
+  return async<T>{ std::coroutine_handle<async_promise>::from_promise(*this) };
 }
 
 inline async<void> async_promise<void>::get_return_object() noexcept
 {
-  return async<void>{ std::experimental::coroutine_handle<async_promise>::from_promise(*this) };
+  return async<void>{ std::coroutine_handle<async_promise>::from_promise(*this) };
 }
 
 template <typename T>
 async<T&> async_promise<T&>::get_return_object() noexcept
 {
-  return async<T&>{ std::experimental::coroutine_handle<async_promise>::from_promise(*this) };
+  return async<T&>{ std::coroutine_handle<async_promise>::from_promise(*this) };
 }
 
 }  // namespace detail
@@ -666,7 +666,7 @@ public:
   async_generator_promise_base(const async_generator_promise_base& other) = delete;
   async_generator_promise_base& operator=(const async_generator_promise_base& other) = delete;
 
-  std::experimental::suspend_always initial_suspend() const noexcept
+  std::suspend_always initial_suspend() const noexcept
   {
     return {};
   }
@@ -724,7 +724,7 @@ private:
   };
 
   std::atomic<state> m_state = state::value_ready_producer_suspended;
-  std::experimental::coroutine_handle<> m_consumerCoroutine;
+  std::coroutine_handle<> m_consumerCoroutine;
 #if ICE_EXCEPTIONS
   std::exception_ptr m_exception = nullptr;
 #endif
@@ -746,7 +746,7 @@ public:
     return m_initialState == state::value_not_ready_consumer_suspended;
   }
 
-  bool await_suspend(std::experimental::coroutine_handle<> producer) noexcept;
+  bool await_suspend(std::coroutine_handle<> producer) noexcept;
 
   void await_resume() noexcept {}
 
@@ -774,7 +774,7 @@ inline async_generator_yield_operation async_generator_promise_base::internal_yi
   return async_generator_yield_operation{ *this, currentState };
 }
 
-inline bool async_generator_yield_operation::await_suspend(std::experimental::coroutine_handle<> producer) noexcept
+inline bool async_generator_yield_operation::await_suspend(std::coroutine_handle<> producer) noexcept
 {
   state currentState = m_initialState;
   if (currentState == state::value_not_ready_consumer_active) {
@@ -815,7 +815,7 @@ protected:
 
   async_generator_advance_operation(
     async_generator_promise_base& promise,
-    std::experimental::coroutine_handle<> producerCoroutine) noexcept :
+    std::coroutine_handle<> producerCoroutine) noexcept :
     m_promise(std::addressof(promise)),
     m_producerCoroutine(producerCoroutine)
   {
@@ -834,7 +834,7 @@ public:
     return m_initialState == state::value_ready_producer_suspended;
   }
 
-  bool await_suspend(std::experimental::coroutine_handle<> consumerCoroutine) noexcept
+  bool await_suspend(std::coroutine_handle<> consumerCoroutine) noexcept
   {
     m_promise->m_consumerCoroutine = consumerCoroutine;
     auto currentState = m_initialState;
@@ -859,7 +859,7 @@ public:
 
 protected:
   async_generator_promise_base* m_promise = nullptr;
-  std::experimental::coroutine_handle<> m_producerCoroutine = nullptr;
+  std::coroutine_handle<> m_producerCoroutine = nullptr;
 
 private:
   state m_initialState;
@@ -926,7 +926,7 @@ private:
 template <typename T>
 class async_generator_iterator final {
   using promise_type = async_generator_promise<T>;
-  using handle_type = std::experimental::coroutine_handle<promise_type>;
+  using handle_type = std::coroutine_handle<promise_type>;
 
 public:
   using iterator_category = std::input_iterator_tag;
@@ -978,7 +978,7 @@ async_generator_iterator<T>& async_generator_increment_operation<T>::await_resum
 template <typename T>
 class async_generator_begin_operation final : public async_generator_advance_operation {
   using promise_type = async_generator_promise<T>;
-  using handle_type = std::experimental::coroutine_handle<promise_type>;
+  using handle_type = std::coroutine_handle<promise_type>;
 
 public:
   async_generator_begin_operation(std::nullptr_t) noexcept : async_generator_advance_operation(nullptr) {}
@@ -1015,7 +1015,7 @@ public:
   async_generator() noexcept = default;
 
   explicit async_generator(promise_type& promise) noexcept :
-    m_coroutine(std::experimental::coroutine_handle<promise_type>::from_promise(promise))
+    m_coroutine(std::coroutine_handle<promise_type>::from_promise(promise))
   {}
 
   async_generator(async_generator&& other) noexcept : m_coroutine(other.m_coroutine)
@@ -1062,7 +1062,7 @@ public:
   }
 
 private:
-  std::experimental::coroutine_handle<promise_type> m_coroutine = nullptr;
+  std::coroutine_handle<promise_type> m_coroutine = nullptr;
 };
 
 template <typename T>
@@ -1138,7 +1138,7 @@ public:
     return false;
   }
 
-  bool await_suspend(std::experimental::coroutine_handle<> awaiter) noexcept;
+  bool await_suspend(std::coroutine_handle<> awaiter) noexcept;
 
   void await_resume() const noexcept {}
 
@@ -1149,7 +1149,7 @@ protected:
 
 private:
   async_mutex_lock_operation* m_next;
-  std::experimental::coroutine_handle<> m_awaiter;
+  std::coroutine_handle<> m_awaiter;
 };
 
 class async_mutex_scoped_lock_operation : public async_mutex_lock_operation {
@@ -1214,7 +1214,7 @@ inline void async_mutex::unlock()
   waitersHead->m_awaiter.resume();
 }
 
-inline bool async_mutex_lock_operation::await_suspend(std::experimental::coroutine_handle<> awaiter) noexcept
+inline bool async_mutex_lock_operation::await_suspend(std::coroutine_handle<> awaiter) noexcept
 {
   m_awaiter = awaiter;
   std::uintptr_t oldState = m_mutex.m_state.load(std::memory_order_acquire);

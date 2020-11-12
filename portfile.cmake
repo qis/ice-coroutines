@@ -3,8 +3,6 @@ if (VCPKG_LIBRARY_LINKAGE STREQUAL dynamic)
   set(VCPKG_LIBRARY_LINKAGE static)
 endif()
 
-include(vcpkg_common_functions)
-
 set(BUILD_SSH OFF)
 if("ssh" IN_LIST FEATURES)
   set(BUILD_SSH ON)

@@ -99,14 +99,14 @@ async<std::error_code> session::connect(net::endpoint endpoint) noexcept
   close();
   tcp::socket socket{ service() };
   if (const auto ec = socket.create(endpoint.family())) {
-    return ec;
+    co_return ec;
   }
   session_handle session{ libssh2_session_init_ex(nullptr, nullptr, nullptr, this) };
   if (!session) {
-    return make_error_code(LIBSSH2_ERROR_ALLOC, domain_category());
+    co_return make_error_code(LIBSSH2_ERROR_ALLOC, domain_category());
   }
   if (const auto rc = libssh2_session_flag(session, LIBSSH2_FLAG_COMPRESS, 1)) {
-    return make_error_code(rc, domain_category());
+    co_return make_error_code(rc, domain_category());
   }
   libssh2_session_callback_set(session, LIBSSH2_CALLBACK_RECV, reinterpret_cast<void*>(&recv_callback));
   libssh2_session_callback_set(session, LIBSSH2_CALLBACK_SEND, reinterpret_cast<void*>(&send_callback));

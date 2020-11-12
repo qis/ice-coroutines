@@ -4,10 +4,7 @@ if(NOT BUILD_SSH)
 endif()
 
 file(GLOB_RECURSE headers CONFIGURE_DEPENDS include/ice/net/ssh/*.hpp)
-source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/include/ice/net/ssh PREFIX "include" FILES ${headers})
-
 file(GLOB_RECURSE sources CONFIGURE_DEPENDS src/ice/net/ssh/*.hpp src/ice/net/ssh/*.cpp)
-source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/src/ice/net/ssh PREFIX "src" FILES ${sources})
 
 add_library(ssh STATIC ${headers} ${sources})
 set_target_properties(ssh PROPERTIES OUTPUT_NAME "ice-ssh")
@@ -20,10 +17,6 @@ target_link_libraries(ssh PUBLIC ice::ice)
 
 find_package(Libssh2 CONFIG REQUIRED)
 target_link_libraries(ssh PUBLIC Libssh2::libssh2)
-
-if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  target_link_libraries(ssh PUBLIC c++experimental)
-endif()
 
 install(TARGETS ssh EXPORT ssh
   RUNTIME DESTINATION bin

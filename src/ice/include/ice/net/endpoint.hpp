@@ -1,6 +1,7 @@
 #pragma once
 #include <ice/config.hpp>
 #include <ice/net/types.hpp>
+#include <fmt/format.h>
 #include <string>
 #include <system_error>
 #include <type_traits>
@@ -84,21 +85,12 @@ private:
 
 }  // namespace ice::net
 
-namespace fmt {
-
 template <>
-struct formatter<ice::net::endpoint, char, void> {
-  template <typename ParseContext>
-  constexpr auto parse(ParseContext& ctx)
-  {
-    return ctx.begin();
-  }
-
+struct fmt::formatter<ice::net::endpoint> : fmt::formatter<std::string_view> {
   template <typename FormatContext>
-  auto format(const ice::net::endpoint& ep, FormatContext& ctx)
+  auto format(const ice::net::endpoint& ep, FormatContext& context)
   {
-    return format_to(ctx.begin(), "{}:{}", ep.host(), ep.port());
+    const auto s = fmt::format("{}:{}", ep.host(), ep.port());
+    return fmt::formatter<std::string_view>::format({ s.data(), s.size() }, context);
   }
 };
-
-}  // namespace fmt

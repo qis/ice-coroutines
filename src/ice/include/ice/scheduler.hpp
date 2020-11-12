@@ -1,7 +1,7 @@
 #pragma once
 #include <ice/config.hpp>
 #include <atomic>
-#include <experimental/coroutine>
+#include <coroutine>
 #include <cassert>
 
 namespace ice {
@@ -34,7 +34,7 @@ public:
     return ready_;
   }
 
-  void await_suspend(std::experimental::coroutine_handle<> awaiter) noexcept
+  void await_suspend(std::coroutine_handle<> awaiter) noexcept
   {
     awaiter_ = awaiter;
     scheduler_.post(this);
@@ -52,7 +52,7 @@ public:
 private:
   Scheduler& scheduler_;
   const bool ready_ = true;
-  std::experimental::coroutine_handle<> awaiter_;
+  std::coroutine_handle<> awaiter_;
 };
 
 template <typename I>
